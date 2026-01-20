@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/backend/" />
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/CourseHub.Api/CourseHub.Api.csproj" />
+    <Project Path="backend/src/CourseHub.Application/CourseHub.Application.csproj" />
+    <Project Path="backend/src/CourseHub.Domain/CourseHub.Domain.csproj" />
+    <Project Path="backend/src/CourseHub.Infrastructure/CourseHub.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/backend/tests/">
+    <Project Path="backend/tests/CourseHub.Tests.Integration/CourseHub.Tests.Integration.csproj" />
+    <Project Path="backend/tests/CourseHub.Tests.Unit/CourseHub.Tests.Unit.csproj" />
+  </Folder>
+  <Folder Name="/frontend/" />
+</Solution>
