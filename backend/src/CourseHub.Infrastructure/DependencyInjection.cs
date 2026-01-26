@@ -2,6 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using CourseHub.Application.Courses;
+using CourseHub.Infrastructure.Repositories;
 
 namespace CourseHub.Infrastructure;
 
@@ -13,6 +15,8 @@ public static class DependencyInjection
 
         services.AddDbContext<CourseHubDbContext>(options =>
             options.UseSqlServer(connectionString));
+
+        services.AddScoped<ICourseRepository, CourseRepository>();
 
         return services;
     }
