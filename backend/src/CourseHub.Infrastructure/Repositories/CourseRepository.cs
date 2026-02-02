@@ -33,4 +33,34 @@ public sealed class CourseRepository : ICourseRepository
             .OrderBy(x => x.CourseCode)
             .ToListAsync(ct);
     }
+
+    public Task<Course?> GetByIdAsync(int id, CancellationToken ct = default)
+    {
+        return _db.Courses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+    }
+
+    public Task<Course?> GetByCourseCodeAsync(string courseCode, CancellationToken ct = default)
+    {
+        return _db.Courses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CourseCode == courseCode, ct);
+    }
+
+    public Task<Course?> GetForUpdateAsync(int id, CancellationToken ct = default)
+    {
+        return _db.Courses.FirstOrDefaultAsync(x => x.Id == id, ct);
+    }
+
+    public Task RemoveAsync(Course course, CancellationToken ct = default)
+    {
+        _db.Courses.Remove(course);
+        return Task.CompletedTask;
+    }
+
+    public Task SaveChangesAsync(CancellationToken ct = default)
+    {
+        return _db.SaveChangesAsync(ct);
+    }
 }

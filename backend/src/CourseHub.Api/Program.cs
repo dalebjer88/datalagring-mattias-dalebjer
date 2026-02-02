@@ -34,4 +34,29 @@ courses.MapPost("/", async (CreateCourseRequest request, ICourseService service,
     }
 });
 
+courses.MapGet("/{id:int}", async (int id, ICourseService service, CancellationToken ct) =>
+{
+    var course = await service.GetByIdAsync(id, ct);
+    return course is null ? Results.NotFound() : Results.Ok(course);
+});
+
+courses.MapPut("/{id:int}", async (int id, UpdateCourseRequest request, ICourseService service, CancellationToken ct) =>
+{
+    try
+    {
+        var updated = await service.UpdateAsync(id, request, ct);
+        return updated is null ? Results.NotFound() : Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex) when (ex.Message == "Course code already exists.")
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+});
+
+courses.MapDelete("/{id:int}", async (int id, ICourseService service, CancellationToken ct) =>
+{
+    var deleted = await service.DeleteAsync(id, ct);
+    return deleted ? Results.NoContent() : Results.NotFound();
+});
+
 app.Run();
