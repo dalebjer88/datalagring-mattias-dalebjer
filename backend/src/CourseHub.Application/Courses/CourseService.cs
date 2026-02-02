@@ -28,6 +28,7 @@ public sealed class CourseService : ICourseService
         };
 
         var created = await _repo.AddAsync(course, ct);
+        await _repo.SaveChangesAsync(ct);
 
         return new CourseDto(created.Id, created.CourseCode, created.Title, created.Description);
     }

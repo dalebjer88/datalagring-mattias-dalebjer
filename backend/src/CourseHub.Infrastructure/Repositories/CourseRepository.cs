@@ -5,62 +5,29 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CourseHub.Infrastructure.Repositories;
 
-public sealed class CourseRepository : ICourseRepository
+public sealed class CourseRepository : BaseRepository<Course>, ICourseRepository
 {
-    private readonly CourseHubDbContext _db;
-
-    public CourseRepository(CourseHubDbContext db)
+    public CourseRepository(CourseHubDbContext db) : base(db)
     {
-        _db = db;
     }
 
     public Task<bool> CourseCodeExistsAsync(string courseCode, CancellationToken ct = default)
     {
-        return _db.Courses.AnyAsync(x => x.CourseCode == courseCode, ct);
+        return Db.Courses.AnyAsync(x => x.CourseCode == courseCode, ct);
     }
 
-    public async Task<Course> AddAsync(Course course, CancellationToken ct = default)
+    public override async Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken ct = default)
     {
-        _db.Courses.Add(course);
-        await _db.SaveChangesAsync(ct);
-        return course;
-    }
-
-    public async Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken ct = default)
-    {
-        return await _db.Courses
+        return await Db.Courses
             .AsNoTracking()
             .OrderBy(x => x.CourseCode)
             .ToListAsync(ct);
     }
 
-    public Task<Course?> GetByIdAsync(int id, CancellationToken ct = default)
-    {
-        return _db.Courses
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == id, ct);
-    }
-
     public Task<Course?> GetByCourseCodeAsync(string courseCode, CancellationToken ct = default)
     {
-        return _db.Courses
+        return Db.Courses
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.CourseCode == courseCode, ct);
-    }
-
-    public Task<Course?> GetForUpdateAsync(int id, CancellationToken ct = default)
-    {
-        return _db.Courses.FirstOrDefaultAsync(x => x.Id == id, ct);
-    }
-
-    public Task RemoveAsync(Course course, CancellationToken ct = default)
-    {
-        _db.Courses.Remove(course);
-        return Task.CompletedTask;
-    }
-
-    public Task SaveChangesAsync(CancellationToken ct = default)
-    {
-        return _db.SaveChangesAsync(ct);
     }
 }
