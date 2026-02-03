@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using CourseHub.Application.Courses;
 using CourseHub.Infrastructure.Repositories;
+using CourseHub.Application.Participants;
+
 
 namespace CourseHub.Infrastructure;
 
@@ -17,6 +19,7 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString));
 
         services.AddScoped<ICourseRepository, CourseRepository>();
+        services.AddScoped<IParticipantRepository, ParticipantRepository>();
 
         return services;
     }
