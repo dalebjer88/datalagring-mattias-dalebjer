@@ -1,12 +1,16 @@
-using CourseHub.Infrastructure;
+using CourseHub.Application.CourseInstances;
 using CourseHub.Application.Courses;
 using CourseHub.Application.Participants;
+using CourseHub.Infrastructure;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IParticipantService, ParticipantService>();
+builder.Services.AddScoped<ICourseInstanceService, CourseInstanceService>();
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -110,6 +114,52 @@ participants.MapPut("/{id:int}", async (int id, UpdateParticipantRequest request
 });
 
 participants.MapDelete("/{id:int}", async (int id, IParticipantService service, CancellationToken ct) =>
+{
+    var deleted = await service.DeleteAsync(id, ct);
+    return deleted ? Results.NoContent() : Results.NotFound();
+});
+
+var courseInstances = api.MapGroup("/course-instances");
+
+courseInstances.MapGet("/", async (ICourseInstanceService service, CancellationToken ct) =>
+{
+    var items = await service.GetAllAsync(ct);
+    return Results.Ok(items);
+});
+
+courseInstances.MapPost("/", async (CreateCourseInstanceRequest request, ICourseInstanceService service, CancellationToken ct) =>
+{
+    try
+    {
+        var created = await service.CreateAsync(request, ct);
+        return Results.Created($"/api/course-instances/{created.Id}", created);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
+courseInstances.MapGet("/{id:int}", async (int id, ICourseInstanceService service, CancellationToken ct) =>
+{
+    var item = await service.GetByIdAsync(id, ct);
+    return item is null ? Results.NotFound() : Results.Ok(item);
+});
+
+courseInstances.MapPut("/{id:int}", async (int id, UpdateCourseInstanceRequest request, ICourseInstanceService service, CancellationToken ct) =>
+{
+    try
+    {
+        var updated = await service.UpdateAsync(id, request, ct);
+        return updated is null ? Results.NotFound() : Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
+courseInstances.MapDelete("/{id:int}", async (int id, ICourseInstanceService service, CancellationToken ct) =>
 {
     var deleted = await service.DeleteAsync(id, ct);
     return deleted ? Results.NoContent() : Results.NotFound();
