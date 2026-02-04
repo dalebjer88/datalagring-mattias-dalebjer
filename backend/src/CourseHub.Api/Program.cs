@@ -2,6 +2,7 @@ using CourseHub.Application.CourseInstances;
 using CourseHub.Application.Courses;
 using CourseHub.Application.Participants;
 using CourseHub.Infrastructure;
+using CourseHub.Application.Locations;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +11,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IParticipantService, ParticipantService>();
 builder.Services.AddScoped<ICourseInstanceService, CourseInstanceService>();
+builder.Services.AddScoped<ILocationService, LocationService>();
 
 
 builder.Services.AddEndpointsApiExplorer();
@@ -27,6 +29,8 @@ app.MapGet("/", () => "CourseHub API is running");
 app.MapGet("/health", () => "OK");
 
 var api = app.MapGroup("/api");
+
+
 var courses = api.MapGroup("/courses");
 
 courses.MapGet("/", async (ICourseService service, CancellationToken ct) =>
@@ -72,6 +76,7 @@ courses.MapDelete("/{id:int}", async (int id, ICourseService service, Cancellati
     var deleted = await service.DeleteAsync(id, ct);
     return deleted ? Results.NoContent() : Results.NotFound();
 });
+
 
 var participants = api.MapGroup("/participants");
 
@@ -119,6 +124,7 @@ participants.MapDelete("/{id:int}", async (int id, IParticipantService service, 
     return deleted ? Results.NoContent() : Results.NotFound();
 });
 
+
 var courseInstances = api.MapGroup("/course-instances");
 
 courseInstances.MapGet("/", async (ICourseInstanceService service, CancellationToken ct) =>
@@ -160,6 +166,53 @@ courseInstances.MapPut("/{id:int}", async (int id, UpdateCourseInstanceRequest r
 });
 
 courseInstances.MapDelete("/{id:int}", async (int id, ICourseInstanceService service, CancellationToken ct) =>
+{
+    var deleted = await service.DeleteAsync(id, ct);
+    return deleted ? Results.NoContent() : Results.NotFound();
+});
+
+
+var locations = api.MapGroup("/locations");
+
+locations.MapGet("/", async (ILocationService service, CancellationToken ct) =>
+{
+    var items = await service.GetAllAsync(ct);
+    return Results.Ok(items);
+});
+
+locations.MapPost("/", async (CreateLocationRequest request, ILocationService service, CancellationToken ct) =>
+{
+    try
+    {
+        var created = await service.CreateAsync(request, ct);
+        return Results.Created($"/api/locations/{created.Id}", created);
+    }
+    catch (InvalidOperationException ex) when (ex.Message == "Location name already exists.")
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+});
+
+locations.MapGet("/{id:int}", async (int id, ILocationService service, CancellationToken ct) =>
+{
+    var item = await service.GetByIdAsync(id, ct);
+    return item is null ? Results.NotFound() : Results.Ok(item);
+});
+
+locations.MapPut("/{id:int}", async (int id, UpdateLocationRequest request, ILocationService service, CancellationToken ct) =>
+{
+    try
+    {
+        var updated = await service.UpdateAsync(id, request, ct);
+        return updated is null ? Results.NotFound() : Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex) when (ex.Message == "Location name already exists.")
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+});
+
+locations.MapDelete("/{id:int}", async (int id, ILocationService service, CancellationToken ct) =>
 {
     var deleted = await service.DeleteAsync(id, ct);
     return deleted ? Results.NoContent() : Results.NotFound();
