@@ -27,24 +27,25 @@ public sealed class LocationService : ILocationService
         await _repo.AddAsync(entity, ct);
         await _repo.SaveChangesAsync(ct);
 
-        return new LocationDto(entity.Id, entity.Name);
+        return new LocationDto(entity.Id, entity.Name, 0);
     }
 
     public async Task<IReadOnlyList<LocationDto>> GetAllAsync(CancellationToken ct = default)
     {
-        var items = await _repo.GetAllAsync(ct);
+        var items = await _repo.GetAllWithInstanceCountAsync(ct);
 
         return items
-            .Select(x => new LocationDto(x.Id, x.Name))
+            .Select(x => new LocationDto(x.Location.Id, x.Location.Name, x.InstanceCount))
             .ToList();
     }
+
 
     public async Task<LocationDto?> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null) return null;
 
-        return new LocationDto(entity.Id, entity.Name);
+        return new LocationDto(entity.Id, entity.Name, 0);
     }
 
     public async Task<LocationDto?> UpdateAsync(int id, UpdateLocationRequest request, CancellationToken ct = default)
@@ -66,7 +67,7 @@ public sealed class LocationService : ILocationService
 
         await _repo.SaveChangesAsync(ct);
 
-        return new LocationDto(entity.Id, entity.Name);
+        return new LocationDto(entity.Id, entity.Name, 0);
     }
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
@@ -74,11 +75,15 @@ public sealed class LocationService : ILocationService
         var entity = await _repo.GetForUpdateAsync(id, ct);
         if (entity is null) return false;
 
+        if (await _repo.IsUsedByCourseInstancesAsync(id, ct))
+            throw new InvalidOperationException("Location is used by course instances. Remove instances first.");
+
         await _repo.RemoveAsync(entity, ct);
         await _repo.SaveChangesAsync(ct);
 
         return true;
     }
+
 
     private static void Validate(string name)
     {

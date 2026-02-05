@@ -30,4 +30,20 @@ public sealed class CourseRepository : BaseRepository<Course>, ICourseRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.CourseCode == courseCode, ct);
     }
+    public Task<bool> IsUsedByCourseInstancesAsync(int courseId, CancellationToken ct = default)
+    {
+        return Db.CourseInstances.AnyAsync(x => x.CourseId == courseId, ct);
+    }
+    public async Task<IReadOnlyList<CourseWithInstanceCount>> GetAllWithInstanceCountAsync(CancellationToken ct = default)
+    {
+        var items = await Db.Courses
+            .Select(c => new CourseWithInstanceCount(
+                c,
+                Db.CourseInstances.Count(ci => ci.CourseId == c.Id)
+            ))
+            .ToListAsync(ct);
+
+        return items;
+    }
+
 }

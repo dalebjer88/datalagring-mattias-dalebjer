@@ -30,24 +30,31 @@ public sealed class CourseService : ICourseService
         var created = await _repo.AddAsync(course, ct);
         await _repo.SaveChangesAsync(ct);
 
-        return new CourseDto(created.Id, created.CourseCode, created.Title, created.Description);
+        return new CourseDto(created.Id, created.CourseCode, created.Title, created.Description, 0);
     }
 
     public async Task<IReadOnlyList<CourseDto>> GetAllAsync(CancellationToken ct = default)
     {
-        var items = await _repo.GetAllAsync(ct);
+        var items = await _repo.GetAllWithInstanceCountAsync(ct);
 
         return items
-            .Select(x => new CourseDto(x.Id, x.CourseCode, x.Title, x.Description))
+            .Select(x => new CourseDto(
+                x.Course.Id,
+                x.Course.CourseCode,
+                x.Course.Title,
+                x.Course.Description,
+                x.InstanceCount
+            ))
             .ToList();
     }
+
 
     public async Task<CourseDto?> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var course = await _repo.GetByIdAsync(id, ct);
         if (course is null) return null;
 
-        return new CourseDto(course.Id, course.CourseCode, course.Title, course.Description);
+        return new CourseDto(course.Id, course.CourseCode, course.Title, course.Description, 0);
     }
 
     public async Task<CourseDto?> UpdateAsync(int id, UpdateCourseRequest request, CancellationToken ct = default)
@@ -72,7 +79,7 @@ public sealed class CourseService : ICourseService
 
         await _repo.SaveChangesAsync(ct);
 
-        return new CourseDto(course.Id, course.CourseCode, course.Title, course.Description);
+        return new CourseDto(course.Id, course.CourseCode, course.Title, course.Description, 0);
     }
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
@@ -80,9 +87,13 @@ public sealed class CourseService : ICourseService
         var course = await _repo.GetForUpdateAsync(id, ct);
         if (course is null) return false;
 
+        if (await _repo.IsUsedByCourseInstancesAsync(id, ct))
+            throw new InvalidOperationException("Course is used by course instances. Remove instances first.");
+
         await _repo.RemoveAsync(course, ct);
         await _repo.SaveChangesAsync(ct);
 
         return true;
     }
+
 }

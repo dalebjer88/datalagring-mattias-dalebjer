@@ -10,5 +10,7 @@
     <Project Path="backend/tests/CourseHub.Tests.Integration/CourseHub.Tests.Integration.csproj" />
     <Project Path="backend/tests/CourseHub.Tests.Unit/CourseHub.Tests.Unit.csproj" />
   </Folder>
-  <Folder Name="/frontend/" />
+  <Folder Name="/scripts/">
+    <File Path="reset-dev-db.sql" />
+  </Folder>
 </Solution>

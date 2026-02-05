@@ -13,11 +13,22 @@ builder.Services.AddScoped<IParticipantService, ParticipantService>();
 builder.Services.AddScoped<ICourseInstanceService, CourseInstanceService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("frontend", policy =>
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
+
+
 var app = builder.Build();
+
+app.UseCors("frontend");
 
 if (app.Environment.IsDevelopment())
 {
@@ -73,10 +84,16 @@ courses.MapPut("/{id:int}", async (int id, UpdateCourseRequest request, ICourseS
 
 courses.MapDelete("/{id:int}", async (int id, ICourseService service, CancellationToken ct) =>
 {
-    var deleted = await service.DeleteAsync(id, ct);
-    return deleted ? Results.NoContent() : Results.NotFound();
+    try
+    {
+        var deleted = await service.DeleteAsync(id, ct);
+        return deleted ? Results.NoContent() : Results.NotFound();
+    }
+    catch (InvalidOperationException ex) when (ex.Message == "Course is used by course instances. Remove instances first.")
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
 });
-
 
 var participants = api.MapGroup("/participants");
 
@@ -214,8 +231,16 @@ locations.MapPut("/{id:int}", async (int id, UpdateLocationRequest request, ILoc
 
 locations.MapDelete("/{id:int}", async (int id, ILocationService service, CancellationToken ct) =>
 {
-    var deleted = await service.DeleteAsync(id, ct);
-    return deleted ? Results.NoContent() : Results.NotFound();
+    try
+    {
+        var deleted = await service.DeleteAsync(id, ct);
+        return deleted ? Results.NoContent() : Results.NotFound();
+    }
+    catch (InvalidOperationException ex) when (ex.Message == "Location is used by course instances. Remove instances first.")
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
 });
+
 
 app.Run();

@@ -30,4 +30,20 @@ public sealed class LocationRepository : BaseRepository<Location>, ILocationRepo
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Name == name, ct);
     }
+    public Task<bool> IsUsedByCourseInstancesAsync(int locationId, CancellationToken ct = default)
+    {
+        return Db.CourseInstances.AnyAsync(x => x.LocationId == locationId, ct);
+    }
+    public async Task<IReadOnlyList<LocationWithInstanceCount>> GetAllWithInstanceCountAsync(CancellationToken ct = default)
+    {
+        var items = await Db.Locations
+            .Select(l => new LocationWithInstanceCount(
+                l,
+                Db.CourseInstances.Count(ci => ci.LocationId == l.Id)
+            ))
+            .ToListAsync(ct);
+
+        return items;
+    }
+
 }
