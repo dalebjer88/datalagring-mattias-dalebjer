@@ -1,54 +1,86 @@
-// frontend/src/pages/CourseInstancesPage.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { CourseDto, CourseInstanceDto, LocationDto } from "../types";
+
+type CourseDto = {
+  id: number;
+  courseCode: string;
+  title: string;
+  description: string;
+  courseInstanceCount: number;
+};
+
+type LocationDto = {
+  id: number;
+  name: string;
+  courseInstanceCount: number;
+};
+
+type TeacherDto = {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  expertise: string;
+};
+
+type CourseInstanceDto = {
+  id: number;
+  startDate: string;
+  endDate: string;
+  capacity: number;
+  courseId: number;
+  locationId: number;
+};
 
 export function CourseInstancesPage() {
   const [items, setItems] = useState<CourseInstanceDto[]>([]);
   const [courses, setCourses] = useState<CourseDto[]>([]);
   const [locations, setLocations] = useState<LocationDto[]>([]);
+  const [teachers, setTeachers] = useState<TeacherDto[]>([]);
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [capacity, setCapacity] = useState<number>(20);
-  const [courseId, setCourseId] = useState<number>(0);
-  const [locationId, setLocationId] = useState<number>(0);
+  const [capacity, setCapacity] = useState<number>(10);
+  const [courseId, setCourseId] = useState<number | "">("");
+  const [locationId, setLocationId] = useState<number | "">("");
+  const [teacherIds, setTeacherIds] = useState<number[]>([]);
 
   const [error, setError] = useState<string | null>(null);
-
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const endMin = startDate ? startDate : today;
 
   async function load() {
     setError(null);
     try {
-      const [instancesData, coursesData, locationsData] = await Promise.all([
+      const [instancesData, coursesData, locationsData, teachersData] = await Promise.all([
         api.get<CourseInstanceDto[]>("/api/course-instances"),
         api.get<CourseDto[]>("/api/courses"),
         api.get<LocationDto[]>("/api/locations"),
+        api.get<TeacherDto[]>("/api/teachers"),
       ]);
 
       setItems(instancesData);
       setCourses(coursesData);
       setLocations(locationsData);
-
-      if (coursesData.length > 0 && courseId === 0) setCourseId(coursesData[0].id);
-      if (locationsData.length > 0 && locationId === 0) setLocationId(locationsData[0].id);
+      setTeachers(teachersData);
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
   useEffect(() => {
-    void load();
+    const run = async () => {
+      await load();
+    };
+
+    void run();
   }, []);
 
-  useEffect(() => {
-    if (!startDate || !endDate) return;
-    if (endDate < startDate) setEndDate("");
-  }, [startDate, endDate]);
+  function toggleTeacher(id: number) {
+    setTeacherIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   async function create() {
+    if (!canCreate) return;
+
     setError(null);
     try {
       const created = await api.post<CourseInstanceDto>("/api/course-instances", {
@@ -57,12 +89,16 @@ export function CourseInstancesPage() {
         capacity,
         courseId,
         locationId,
+        teacherIds,
       });
 
       setItems((prev) => [created, ...prev]);
       setStartDate("");
       setEndDate("");
-      setCapacity(20);
+      setCapacity(10);
+      setCourseId("");
+      setLocationId("");
+      setTeacherIds([]);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -79,80 +115,73 @@ export function CourseInstancesPage() {
   }
 
   const canCreate =
-    !!startDate &&
-    !!endDate &&
-    startDate >= today &&
-    endDate >= startDate &&
+    startDate.trim().length > 0 &&
+    endDate.trim().length > 0 &&
     capacity > 0 &&
-    courseId > 0 &&
-    locationId > 0;
+    courseId !== "" &&
+    locationId !== "" &&
+    teacherIds.length > 0;
 
   return (
-    <div>
+    <div style={{ width: "100%" }}>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto" }}>
       <h2>Course instances</h2>
-
+      </div>
       {error && <div style={{ color: "red", marginBottom: 12 }}>{error}</div>}
 
-      <div style={{ display: "grid", gap: 8, maxWidth: 520, marginBottom: 16 }}>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>Start date</span>
-          <input type="date" value={startDate} min={today} onChange={(e) => setStartDate(e.target.value)} />
-        </label>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto 16px" }}>
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
 
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>End date</span>
-          <input type="date" value={endDate} min={endMin} onChange={(e) => setEndDate(e.target.value)} />
-        </label>
+        <input
+          type="number"
+          value={capacity}
+          min={1}
+          onChange={(e) => setCapacity(Number(e.target.value))}
+          placeholder="Capacity"
+        />
 
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>Capacity</span>
-          <input type="number" value={capacity} min={1} onChange={(e) => setCapacity(Number(e.target.value))} />
-        </label>
+        <select value={courseId} onChange={(e) => setCourseId(e.target.value ? Number(e.target.value) : "")}>
+          <option value="">Select course</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.courseCode} – {c.title} (Id: {c.id})
+            </option>
+          ))}
+        </select>
 
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>Course</span>
-          <select value={courseId} onChange={(e) => setCourseId(Number(e.target.value))} disabled={courses.length === 0}>
-            {courses.length === 0 ? (
-              <option value={0}>No courses available</option>
-            ) : (
-              courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.id} – {c.courseCode} – {c.title}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
+        <select value={locationId} onChange={(e) => setLocationId(e.target.value ? Number(e.target.value) : "")}>
+          <option value="">Select location</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name} (Id: {l.id})
+            </option>
+          ))}
+        </select>
 
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>Location</span>
-          <select
-            value={locationId}
-            onChange={(e) => setLocationId(Number(e.target.value))}
-            disabled={locations.length === 0}
-          >
-            {locations.length === 0 ? (
-              <option value={0}>No locations available</option>
-            ) : (
-              locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.id} – {l.name}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
+        <div style={{ border: "1px solid #333", borderRadius: 6, padding: 8 }}>
+          <div style={{ marginBottom: 6, opacity: 0.9 }}>Teachers (select at least 1)</div>
+          <div style={{ display: "grid", gap: 6 }}>
+            {teachers.map((t) => {
+              const checked = teacherIds.includes(t.id);
+              return (
+                <label key={t.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleTeacher(t.id)} />
+                  <span>
+                    {t.firstName} {t.lastName} ({t.email}) – Id: {t.id}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
 
         <button onClick={create} disabled={!canCreate}>
           Create
         </button>
       </div>
 
-      <button onClick={load} style={{ marginBottom: 12 }}>
-        Refresh
-      </button>
-
-      <ul style={{ paddingLeft: 0, listStyle: "none" }}>
+      <ul style={{ paddingLeft: 0, listStyle: "none", maxWidth: 900, margin: "0 auto" }}>
         {items.map((x) => (
           <li
             key={x.id}
@@ -165,14 +194,14 @@ export function CourseInstancesPage() {
               borderBottom: "1px solid #333",
             }}
           >
-            <div>
-              <strong>
-                {x.startDate} → {x.endDate}
-              </strong>{" "}
-              (Id: {x.id})
+            <div style={{ textAlign: "left" }}>
+              <strong>CourseInstance</strong> (Id: {x.id})
               <div>
-                Capacity: {x.capacity} – CourseId: {x.courseId} – LocationId: {x.locationId}
+                {x.startDate} → {x.endDate}
               </div>
+              <div>Capacity: {x.capacity}</div>
+              <div>CourseId: {x.courseId}</div>
+              <div>LocationId: {x.locationId}</div>
             </div>
 
             <button onClick={() => remove(x.id)}>Delete</button>

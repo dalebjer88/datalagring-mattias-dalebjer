@@ -13,13 +13,21 @@ public sealed class CourseInstanceService : ICourseInstanceService
 
     public async Task<CourseInstanceDto> CreateAsync(CreateCourseInstanceRequest request, CancellationToken ct = default)
     {
-        Validate(request.StartDate, request.EndDate, request.Capacity, request.CourseId, request.LocationId);
+        Validate(request.StartDate, request.EndDate, request.Capacity, request.CourseId, request.LocationId, request.TeacherIds);
 
         if (!await _repo.CourseExistsAsync(request.CourseId, ct))
             throw new InvalidOperationException("Course does not exist.");
 
         if (!await _repo.LocationExistsAsync(request.LocationId, ct))
             throw new InvalidOperationException("Location does not exist.");
+
+        var teacherIds = request.TeacherIds
+            .Where(x => x > 0)
+            .Distinct()
+            .ToArray();
+
+        if (!await _repo.TeachersExistAsync(teacherIds, ct))
+            throw new InvalidOperationException("One or more teachers do not exist.");
 
         var entity = new CourseInstance
         {
@@ -29,6 +37,14 @@ public sealed class CourseInstanceService : ICourseInstanceService
             CourseId = request.CourseId,
             LocationId = request.LocationId
         };
+
+        foreach (var teacherId in teacherIds)
+        {
+            entity.CourseInstanceTeachers.Add(new CourseInstanceTeacher
+            {
+                TeacherId = teacherId
+            });
+        }
 
         await _repo.AddAsync(entity, ct);
         await _repo.SaveChangesAsync(ct);
@@ -94,5 +110,13 @@ public sealed class CourseInstanceService : ICourseInstanceService
         if (capacity <= 0) throw new InvalidOperationException("Capacity must be greater than 0.");
         if (courseId <= 0) throw new InvalidOperationException("CourseId is required.");
         if (locationId <= 0) throw new InvalidOperationException("LocationId is required.");
+    }
+
+    private static void Validate(DateOnly startDate, DateOnly endDate, int capacity, int courseId, int locationId, int[] teacherIds)
+    {
+        Validate(startDate, endDate, capacity, courseId, locationId);
+
+        if (teacherIds is null || teacherIds.Length == 0)
+            throw new InvalidOperationException("At least one teacher is required.");
     }
 }

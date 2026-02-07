@@ -29,4 +29,17 @@ public sealed class CourseInstanceRepository : BaseRepository<CourseInstance>, I
     {
         return Db.Locations.AnyAsync(x => x.Id == locationId, ct);
     }
+    public async Task<bool> TeachersExistAsync(IEnumerable<int> teacherIds, CancellationToken ct = default)
+    {
+        var ids = teacherIds
+            .Where(x => x > 0)
+            .Distinct()
+            .ToArray();
+
+        if (ids.Length == 0) return false;
+
+        var count = await Db.Teachers.CountAsync(x => ids.Contains(x.Id), ct);
+        return count == ids.Length;
+    }
+
 }

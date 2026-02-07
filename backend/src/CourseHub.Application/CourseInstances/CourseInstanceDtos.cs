@@ -5,7 +5,8 @@ public sealed record CreateCourseInstanceRequest(
     DateOnly EndDate,
     int Capacity,
     int CourseId,
-    int LocationId);
+    int LocationId,
+    int[] TeacherIds);
 
 public sealed record UpdateCourseInstanceRequest(
     DateOnly StartDate,
