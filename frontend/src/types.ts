@@ -28,3 +28,11 @@ export type CourseInstanceDto = {
   courseId: number;
   locationId: number;
 };
+
+export type EnrollmentDto = {
+  id: number;
+  participantId: number;
+  courseInstanceId: number;
+  registeredAt: string;
+  status: string;
+};

@@ -3,8 +3,10 @@ import { CoursesPage } from "./pages/CoursesPage";
 import { ParticipantsPage } from "./pages/ParticipantsPage";
 import { LocationsPage } from "./pages/LocationsPage";
 import { CourseInstancesPage } from "./pages/CourseInstancesPage";
+import { EnrollmentsPage } from "./pages/EnrollmentsPage";
 
-type Tab = "courses" | "participants" | "locations" | "courseInstances";
+
+type Tab = "courses" | "participants" | "locations" | "courseInstances" | "enrollments";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("courses");
@@ -28,6 +30,7 @@ export default function App() {
         <button onClick={() => setTab("participants")}>Participants</button>
         <button onClick={() => setTab("locations")}>Locations</button>
         <button onClick={() => setTab("courseInstances")}>Course instances</button>
+        <button onClick={() => setTab("enrollments")}>Enrollments</button>
       </div>
 
       <div style={{ width: "100%" }}>
@@ -35,6 +38,7 @@ export default function App() {
         {tab === "participants" && <ParticipantsPage />}
         {tab === "locations" && <LocationsPage />}
         {tab === "courseInstances" && <CourseInstancesPage />}
+        {tab === "enrollments" && <EnrollmentsPage />}
       </div>
     </div>
   );

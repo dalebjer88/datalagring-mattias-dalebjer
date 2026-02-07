@@ -3,6 +3,8 @@ using CourseHub.Application.Courses;
 using CourseHub.Application.Participants;
 using CourseHub.Infrastructure;
 using CourseHub.Application.Locations;
+using CourseHub.Application.Enrollments;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +14,8 @@ builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IParticipantService, ParticipantService>();
 builder.Services.AddScoped<ICourseInstanceService, CourseInstanceService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
+builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -242,5 +246,54 @@ locations.MapDelete("/{id:int}", async (int id, ILocationService service, Cancel
     }
 });
 
+var enrollments = api.MapGroup("/enrollments");
+
+enrollments.MapGet("/", async (IEnrollmentService service, CancellationToken ct) =>
+{
+    var items = await service.GetAllAsync(ct);
+    return Results.Ok(items);
+});
+
+enrollments.MapPost("/", async (CreateEnrollmentRequest request, IEnrollmentService service, CancellationToken ct) =>
+{
+    try
+    {
+        var created = await service.CreateAsync(request, ct);
+        return Results.Created($"/api/enrollments/{created.Id}", created);
+    }
+    catch (InvalidOperationException ex) when (ex.Message == "Enrollment already exists.")
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
+enrollments.MapGet("/{id:int}", async (int id, IEnrollmentService service, CancellationToken ct) =>
+{
+    var item = await service.GetByIdAsync(id, ct);
+    return item is null ? Results.NotFound() : Results.Ok(item);
+});
+
+enrollments.MapPut("/{id:int}", async (int id, UpdateEnrollmentRequest request, IEnrollmentService service, CancellationToken ct) =>
+{
+    try
+    {
+        var updated = await service.UpdateAsync(id, request, ct);
+        return updated is null ? Results.NotFound() : Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
+enrollments.MapDelete("/{id:int}", async (int id, IEnrollmentService service, CancellationToken ct) =>
+{
+    var deleted = await service.DeleteAsync(id, ct);
+    return deleted ? Results.NoContent() : Results.NotFound();
+});
 
 app.Run();

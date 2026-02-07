@@ -7,6 +7,8 @@ using CourseHub.Infrastructure.Repositories;
 using CourseHub.Application.Participants;
 using CourseHub.Application.CourseInstances;
 using CourseHub.Application.Locations;
+using CourseHub.Application.Enrollments;
+
 
 
 
@@ -25,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IParticipantRepository, ParticipantRepository>();
         services.AddScoped<ICourseInstanceRepository, CourseInstanceRepository>();
         services.AddScoped<ILocationRepository, LocationRepository>();
+        services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
 
 
 
