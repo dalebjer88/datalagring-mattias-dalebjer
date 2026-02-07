@@ -61,11 +61,12 @@ useEffect(() => {
 
   return (
     <div>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto" }}>
       <h2>Participants</h2>
-
+      </div>
       {error && <div style={{ color: "red", marginBottom: 12 }}>{error}</div>}
 
-      <div style={{ display: "grid", gap: 8, maxWidth: 520, marginBottom: 16 }}>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto 16px" }}>
         <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
         <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
         <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
@@ -77,10 +78,6 @@ useEffect(() => {
           Create
         </button>
       </div>
-
-      <button onClick={load} style={{ marginBottom: 12 }}>
-        Refresh
-      </button>
 
       <ul style={{ paddingLeft: 0, listStyle: "none" }}>
         {items.map((x) => (

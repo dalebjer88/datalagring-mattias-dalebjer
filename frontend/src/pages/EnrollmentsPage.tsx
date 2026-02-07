@@ -84,11 +84,12 @@ export function EnrollmentsPage() {
 
   return (
     <div style={{ width: "100%" }}>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto" }}>
       <h2>Enrollments</h2>
-
+      </div>
       {error && <div style={{ color: "red", marginBottom: 12 }}>{error}</div>}
 
-      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto 16px" }}>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto" }}>
         <select
           value={participantId}
           onChange={(e) => setParticipantId(e.target.value ? Number(e.target.value) : "")}
@@ -117,10 +118,6 @@ export function EnrollmentsPage() {
           Create
         </button>
       </div>
-
-      <button onClick={load} style={{ marginBottom: 12 }}>
-        Refresh
-      </button>
 
       <ul style={{ paddingLeft: 0, listStyle: "none", maxWidth: 900, margin: "0 auto" }}>
         {items.map((x) => (

@@ -51,23 +51,22 @@ export function CoursesPage() {
   }
 
   return (
-    <div style={{ width: "100%" }}>
+<div style={{ width: "100%", maxWidth: 900, margin: "0 auto", textAlign: "left" }}>
+    <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto" }}>
       <h2>Courses</h2>
-
+    </div>
+      
       {error && <div style={{ color: "red", marginBottom: 12 }}>{error}</div>}
 
-      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto 16px" }}>
+    <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto 16px" }}>
+
         <input value={courseCode} onChange={(e) => setCourseCode(e.target.value)} placeholder="Course code" />
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
         <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
         <button onClick={create} disabled={!courseCode.trim() || !title.trim() || !description.trim()}>
           Create
         </button>
-      </div>
-
-      <button onClick={load} style={{ marginBottom: 12 }}>
-        Refresh
-      </button>
+    </div>
 
       <ul style={{ paddingLeft: 0, listStyle: "none", maxWidth: 900, margin: "0 auto" }}>
         {items.map((x) => {

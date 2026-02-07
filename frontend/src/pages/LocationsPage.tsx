@@ -48,20 +48,17 @@ export function LocationsPage() {
 
   return (
     <div>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto" }}>
       <h2>Locations</h2>
-
+      </div>
       {error && <div style={{ color: "red", marginBottom: 12 }}>{error}</div>}
 
-      <div style={{ display: "grid", gap: 8, maxWidth: 520, marginBottom: 16 }}>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto 16px" }}>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
         <button onClick={create} disabled={!name.trim()}>
           Create
         </button>
       </div>
-
-      <button onClick={load} style={{ marginBottom: 12 }}>
-        Refresh
-      </button>
 
       <ul style={{ paddingLeft: 0, listStyle: "none" }}>
         {items.map((x) => {
