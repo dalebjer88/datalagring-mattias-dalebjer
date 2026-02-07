@@ -4,6 +4,8 @@ using CourseHub.Application.Participants;
 using CourseHub.Infrastructure;
 using CourseHub.Application.Locations;
 using CourseHub.Application.Enrollments;
+using CourseHub.Application.Teachers;
+
 
 
 
@@ -15,6 +17,7 @@ builder.Services.AddScoped<IParticipantService, ParticipantService>();
 builder.Services.AddScoped<ICourseInstanceService, CourseInstanceService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
+builder.Services.AddScoped<ITeacherService, TeacherService>();
 
 
 builder.Services.AddEndpointsApiExplorer();
@@ -294,6 +297,67 @@ enrollments.MapDelete("/{id:int}", async (int id, IEnrollmentService service, Ca
 {
     var deleted = await service.DeleteAsync(id, ct);
     return deleted ? Results.NoContent() : Results.NotFound();
+});
+
+var teachers = api.MapGroup("/teachers");
+
+teachers.MapGet("/", async (ITeacherService service, CancellationToken ct) =>
+{
+    var items = await service.GetAllAsync(ct);
+    return Results.Ok(items);
+});
+
+teachers.MapPost("/", async (CreateTeacherRequest request, ITeacherService service, CancellationToken ct) =>
+{
+    try
+    {
+        var created = await service.CreateAsync(request, ct);
+        return Results.Created($"/api/teachers/{created.Id}", created);
+    }
+    catch (InvalidOperationException ex) when (ex.Message == "Email already exists.")
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
+teachers.MapGet("/{id:int}", async (int id, ITeacherService service, CancellationToken ct) =>
+{
+    var item = await service.GetByIdAsync(id, ct);
+    return item is null ? Results.NotFound() : Results.Ok(item);
+});
+
+teachers.MapPut("/{id:int}", async (int id, UpdateTeacherRequest request, ITeacherService service, CancellationToken ct) =>
+{
+    try
+    {
+        var updated = await service.UpdateAsync(id, request, ct);
+        return updated is null ? Results.NotFound() : Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex) when (ex.Message == "Email already exists.")
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
+teachers.MapDelete("/{id:int}", async (int id, ITeacherService service, CancellationToken ct) =>
+{
+    try
+    {
+        var deleted = await service.DeleteAsync(id, ct);
+        return deleted ? Results.NoContent() : Results.NotFound();
+    }
+    catch (InvalidOperationException ex) when (ex.Message == "Teacher is used by course instances. Remove links first.")
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
 });
 
 app.Run();

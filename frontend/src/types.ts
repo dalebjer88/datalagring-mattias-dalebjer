@@ -36,3 +36,11 @@ export type EnrollmentDto = {
   registeredAt: string;
   status: string;
 };
+
+export type TeacherDto = {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  expertise: string;
+};

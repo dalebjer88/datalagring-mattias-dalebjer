@@ -11,6 +11,6 @@
     <Project Path="backend/tests/CourseHub.Tests.Unit/CourseHub.Tests.Unit.csproj" />
   </Folder>
   <Folder Name="/scripts/">
-    <File Path="reset-dev-db.sql" />
+    <File Path="scripts/reset-dev-db.sql" />
   </Folder>
 </Solution>
