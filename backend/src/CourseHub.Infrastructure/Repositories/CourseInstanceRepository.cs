@@ -15,9 +15,25 @@ public sealed class CourseInstanceRepository : BaseRepository<CourseInstance>, I
     {
         return await Set
             .AsNoTracking()
+            .Include(x => x.CourseInstanceTeachers)
             .OrderBy(x => x.StartDate)
             .ThenBy(x => x.Id)
             .ToListAsync(ct);
+    }
+
+    public override Task<CourseInstance?> GetByIdAsync(int id, CancellationToken ct = default)
+    {
+        return Set
+            .AsNoTracking()
+            .Include(x => x.CourseInstanceTeachers)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+    }
+
+    public override Task<CourseInstance?> GetForUpdateAsync(int id, CancellationToken ct = default)
+    {
+        return Set
+            .Include(x => x.CourseInstanceTeachers)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
     }
 
     public Task<bool> CourseExistsAsync(int courseId, CancellationToken ct = default)
@@ -29,6 +45,7 @@ public sealed class CourseInstanceRepository : BaseRepository<CourseInstance>, I
     {
         return Db.Locations.AnyAsync(x => x.Id == locationId, ct);
     }
+
     public async Task<bool> TeachersExistAsync(IEnumerable<int> teacherIds, CancellationToken ct = default)
     {
         var ids = teacherIds
@@ -41,5 +58,4 @@ public sealed class CourseInstanceRepository : BaseRepository<CourseInstance>, I
         var count = await Db.Teachers.CountAsync(x => ids.Contains(x.Id), ct);
         return count == ids.Length;
     }
-
 }

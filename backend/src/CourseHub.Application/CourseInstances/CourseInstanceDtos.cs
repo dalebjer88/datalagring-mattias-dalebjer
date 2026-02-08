@@ -13,7 +13,8 @@ public sealed record UpdateCourseInstanceRequest(
     DateOnly EndDate,
     int Capacity,
     int CourseId,
-    int LocationId);
+    int LocationId,
+    int[] TeacherIds);
 
 public sealed record CourseInstanceDto(
     int Id,
@@ -21,4 +22,5 @@ public sealed record CourseInstanceDto(
     DateOnly EndDate,
     int Capacity,
     int CourseId,
-    int LocationId);
+    int LocationId,
+    int[] TeacherIds);

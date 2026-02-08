@@ -13,7 +13,7 @@ public sealed class CourseInstanceService : ICourseInstanceService
 
     public async Task<CourseInstanceDto> CreateAsync(CreateCourseInstanceRequest request, CancellationToken ct = default)
     {
-        Validate(request.StartDate, request.EndDate, request.Capacity, request.CourseId, request.LocationId, request.TeacherIds);
+        Validate(request.StartDate, request.EndDate, request.Capacity, request.CourseId, request.LocationId);
 
         if (!await _repo.CourseExistsAsync(request.CourseId, ct))
             throw new InvalidOperationException("Course does not exist.");
@@ -21,10 +21,13 @@ public sealed class CourseInstanceService : ICourseInstanceService
         if (!await _repo.LocationExistsAsync(request.LocationId, ct))
             throw new InvalidOperationException("Location does not exist.");
 
-        var teacherIds = request.TeacherIds
+        var teacherIds = (request.TeacherIds ?? Array.Empty<int>())
             .Where(x => x > 0)
             .Distinct()
             .ToArray();
+
+        if (teacherIds.Length == 0)
+            throw new InvalidOperationException("At least one teacher is required.");
 
         if (!await _repo.TeachersExistAsync(teacherIds, ct))
             throw new InvalidOperationException("One or more teachers do not exist.");
@@ -49,7 +52,8 @@ public sealed class CourseInstanceService : ICourseInstanceService
         await _repo.AddAsync(entity, ct);
         await _repo.SaveChangesAsync(ct);
 
-        return new CourseInstanceDto(entity.Id, entity.StartDate, entity.EndDate, entity.Capacity, entity.CourseId, entity.LocationId);
+        var dtoTeacherIds = entity.CourseInstanceTeachers.Select(x => x.TeacherId).ToArray();
+        return new CourseInstanceDto(entity.Id, entity.StartDate, entity.EndDate, entity.Capacity, entity.CourseId, entity.LocationId, dtoTeacherIds);
     }
 
     public async Task<IReadOnlyList<CourseInstanceDto>> GetAllAsync(CancellationToken ct = default)
@@ -57,7 +61,15 @@ public sealed class CourseInstanceService : ICourseInstanceService
         var items = await _repo.GetAllAsync(ct);
 
         return items
-            .Select(x => new CourseInstanceDto(x.Id, x.StartDate, x.EndDate, x.Capacity, x.CourseId, x.LocationId))
+            .Select(x => new CourseInstanceDto(
+                x.Id,
+                x.StartDate,
+                x.EndDate,
+                x.Capacity,
+                x.CourseId,
+                x.LocationId,
+                x.CourseInstanceTeachers.Select(t => t.TeacherId).ToArray()
+            ))
             .ToList();
     }
 
@@ -66,15 +78,16 @@ public sealed class CourseInstanceService : ICourseInstanceService
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null) return null;
 
-        return new CourseInstanceDto(entity.Id, entity.StartDate, entity.EndDate, entity.Capacity, entity.CourseId, entity.LocationId);
+        var teacherIds = entity.CourseInstanceTeachers.Select(t => t.TeacherId).ToArray();
+        return new CourseInstanceDto(entity.Id, entity.StartDate, entity.EndDate, entity.Capacity, entity.CourseId, entity.LocationId, teacherIds);
     }
 
     public async Task<CourseInstanceDto?> UpdateAsync(int id, UpdateCourseInstanceRequest request, CancellationToken ct = default)
     {
+        Validate(request.StartDate, request.EndDate, request.Capacity, request.CourseId, request.LocationId);
+
         var entity = await _repo.GetForUpdateAsync(id, ct);
         if (entity is null) return null;
-
-        Validate(request.StartDate, request.EndDate, request.Capacity, request.CourseId, request.LocationId);
 
         if (!await _repo.CourseExistsAsync(request.CourseId, ct))
             throw new InvalidOperationException("Course does not exist.");
@@ -82,15 +95,38 @@ public sealed class CourseInstanceService : ICourseInstanceService
         if (!await _repo.LocationExistsAsync(request.LocationId, ct))
             throw new InvalidOperationException("Location does not exist.");
 
+        var teacherIds = (request.TeacherIds ?? Array.Empty<int>())
+            .Where(x => x > 0)
+            .Distinct()
+            .ToArray();
+
+        if (teacherIds.Length == 0)
+            throw new InvalidOperationException("At least one teacher is required.");
+
+        if (!await _repo.TeachersExistAsync(teacherIds, ct))
+            throw new InvalidOperationException("One or more teachers do not exist.");
+
         entity.StartDate = request.StartDate;
         entity.EndDate = request.EndDate;
         entity.Capacity = request.Capacity;
         entity.CourseId = request.CourseId;
         entity.LocationId = request.LocationId;
 
+        entity.CourseInstanceTeachers.Clear();
+
+        foreach (var teacherId in teacherIds)
+        {
+            entity.CourseInstanceTeachers.Add(new CourseInstanceTeacher
+            {
+                CourseInstanceId = entity.Id,
+                TeacherId = teacherId
+            });
+        }
+
         await _repo.SaveChangesAsync(ct);
 
-        return new CourseInstanceDto(entity.Id, entity.StartDate, entity.EndDate, entity.Capacity, entity.CourseId, entity.LocationId);
+        var dtoTeacherIds = entity.CourseInstanceTeachers.Select(x => x.TeacherId).ToArray();
+        return new CourseInstanceDto(entity.Id, entity.StartDate, entity.EndDate, entity.Capacity, entity.CourseId, entity.LocationId, dtoTeacherIds);
     }
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
@@ -110,13 +146,5 @@ public sealed class CourseInstanceService : ICourseInstanceService
         if (capacity <= 0) throw new InvalidOperationException("Capacity must be greater than 0.");
         if (courseId <= 0) throw new InvalidOperationException("CourseId is required.");
         if (locationId <= 0) throw new InvalidOperationException("LocationId is required.");
-    }
-
-    private static void Validate(DateOnly startDate, DateOnly endDate, int capacity, int courseId, int locationId, int[] teacherIds)
-    {
-        Validate(startDate, endDate, capacity, courseId, locationId);
-
-        if (teacherIds is null || teacherIds.Length == 0)
-            throw new InvalidOperationException("At least one teacher is required.");
     }
 }
