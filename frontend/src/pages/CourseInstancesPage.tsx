@@ -78,6 +78,16 @@ export function CourseInstancesPage() {
     setTeacherIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
+  const normalizedTeacherIds = Array.from(new Set(teacherIds.filter((id) => id > 0)));
+  const canCreate =
+    startDate.trim().length > 0 &&
+    endDate.trim().length > 0 &&
+    endDate >= startDate &&
+    capacity > 0 &&
+    courseId !== "" &&
+    locationId !== "" &&
+    normalizedTeacherIds.length > 0;
+
   async function create() {
     if (!canCreate) return;
 
@@ -89,7 +99,7 @@ export function CourseInstancesPage() {
         capacity,
         courseId,
         locationId,
-        teacherIds,
+        teacherIds: normalizedTeacherIds,
       });
 
       setItems((prev) => [created, ...prev]);
@@ -114,19 +124,12 @@ export function CourseInstancesPage() {
     }
   }
 
-  const canCreate =
-    startDate.trim().length > 0 &&
-    endDate.trim().length > 0 &&
-    capacity > 0 &&
-    courseId !== "" &&
-    locationId !== "" &&
-    teacherIds.length > 0;
-
   return (
     <div style={{ width: "100%" }}>
       <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto" }}>
-      <h2>Course instances</h2>
+        <h2>Course instances</h2>
       </div>
+
       {error && <div style={{ color: "red", marginBottom: 12 }}>{error}</div>}
 
       <div style={{ display: "grid", gap: 8, maxWidth: 520, margin: "0 auto 16px" }}>
