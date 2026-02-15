@@ -30,6 +30,7 @@ type CourseInstanceDto = {
   capacity: number;
   courseId: number;
   locationId: number;
+  teacherIds: number[];
 };
 
 export function CourseInstancesPage() {
@@ -205,6 +206,7 @@ export function CourseInstancesPage() {
               <div>Capacity: {x.capacity}</div>
               <div>CourseId: {x.courseId}</div>
               <div>LocationId: {x.locationId}</div>
+              <div>TeacherIds: {x.teacherIds}</div>
             </div>
 
             <button onClick={() => remove(x.id)}>Delete</button>

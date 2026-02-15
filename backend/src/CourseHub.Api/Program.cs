@@ -5,20 +5,19 @@ using CourseHub.Infrastructure;
 using CourseHub.Application.Locations;
 using CourseHub.Application.Enrollments;
 using CourseHub.Application.Teachers;
-
-
+using CourseHub.Application.Registrations;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IParticipantService, ParticipantService>();
 builder.Services.AddScoped<ICourseInstanceService, CourseInstanceService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<ITeacherService, TeacherService>();
-
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -48,8 +47,8 @@ app.MapGet("/health", () => "OK");
 
 var api = app.MapGroup("/api");
 
-
-var courses = api.MapGroup("/courses");
+#region Courses
+var courses = api.MapGroup("/courses").WithTags("Courses");
 
 courses.MapGet("/", async (ICourseService service, CancellationToken ct) =>
 {
@@ -101,8 +100,10 @@ courses.MapDelete("/{id:int}", async (int id, ICourseService service, Cancellati
         return Results.Conflict(new { message = ex.Message });
     }
 });
+#endregion
 
-var participants = api.MapGroup("/participants");
+#region Participants
+var participants = api.MapGroup("/participants").WithTags("Perticipants");
 
 participants.MapGet("/", async (IParticipantService service, CancellationToken ct) =>
 {
@@ -147,9 +148,10 @@ participants.MapDelete("/{id:int}", async (int id, IParticipantService service, 
     var deleted = await service.DeleteAsync(id, ct);
     return deleted ? Results.NoContent() : Results.NotFound();
 });
+#endregion
 
-
-var courseInstances = api.MapGroup("/course-instances");
+#region CourseInstances
+var courseInstances = api.MapGroup("/course-instances").WithTags("Course-Instances");
 
 courseInstances.MapGet("/", async (ICourseInstanceService service, CancellationToken ct) =>
 {
@@ -194,9 +196,10 @@ courseInstances.MapDelete("/{id:int}", async (int id, ICourseInstanceService ser
     var deleted = await service.DeleteAsync(id, ct);
     return deleted ? Results.NoContent() : Results.NotFound();
 });
+#endregion
 
-
-var locations = api.MapGroup("/locations");
+#region Locations
+var locations = api.MapGroup("/locations").WithTags("Locations");
 
 locations.MapGet("/", async (ILocationService service, CancellationToken ct) =>
 {
@@ -248,8 +251,10 @@ locations.MapDelete("/{id:int}", async (int id, ILocationService service, Cancel
         return Results.Conflict(new { message = ex.Message });
     }
 });
+#endregion
 
-var enrollments = api.MapGroup("/enrollments");
+#region Enrollments
+var enrollments = api.MapGroup("/enrollments").WithTags("Enrollments");
 
 enrollments.MapGet("/", async (IEnrollmentService service, CancellationToken ct) =>
 {
@@ -298,8 +303,10 @@ enrollments.MapDelete("/{id:int}", async (int id, IEnrollmentService service, Ca
     var deleted = await service.DeleteAsync(id, ct);
     return deleted ? Results.NoContent() : Results.NotFound();
 });
+#endregion
 
-var teachers = api.MapGroup("/teachers");
+#region Teachers
+var teachers = api.MapGroup("/teachers").WithTags("Teachers");
 
 teachers.MapGet("/", async (ITeacherService service, CancellationToken ct) =>
 {
@@ -359,5 +366,24 @@ teachers.MapDelete("/{id:int}", async (int id, ITeacherService service, Cancella
         return Results.Conflict(new { message = ex.Message });
     }
 });
+#endregion
+
+#region Registrations
+var registrations = api.MapGroup("/registrations").WithTags("Registrations");
+
+registrations.MapPost("/course-instance-with-enrollments",
+    async (CreateCourseInstanceWithEnrollmentsRequest request, IRegistrationService service, CancellationToken ct) =>
+    {
+        try
+        {
+            var result = await service.CreateCourseInstanceWithEnrollmentsAsync(request, ct);
+            return Results.Created($"/api/course-instances/{result.CourseInstanceId}", result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    });
+#endregion
 
 app.Run();

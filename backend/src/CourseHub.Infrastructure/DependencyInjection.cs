@@ -9,9 +9,7 @@ using CourseHub.Application.CourseInstances;
 using CourseHub.Application.Locations;
 using CourseHub.Application.Enrollments;
 using CourseHub.Application.Teachers;
-
-
-
+using CourseHub.Application.Interfaces;
 
 
 namespace CourseHub.Infrastructure;
@@ -25,14 +23,13 @@ public static class DependencyInjection
         services.AddDbContext<CourseHubDbContext>(options =>
             options.UseSqlServer(connectionString));
 
+        services.AddScoped<ITransactionRunner, EfCoreTransactionRunner>();
         services.AddScoped<ICourseRepository, CourseRepository>();
         services.AddScoped<IParticipantRepository, ParticipantRepository>();
         services.AddScoped<ICourseInstanceRepository, CourseInstanceRepository>();
         services.AddScoped<ILocationRepository, LocationRepository>();
         services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
         services.AddScoped<ITeacherRepository, TeacherRepository>();
-
-
 
         return services;
     }
