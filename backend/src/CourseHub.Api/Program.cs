@@ -103,7 +103,7 @@ courses.MapDelete("/{id:int}", async (int id, ICourseService service, Cancellati
 #endregion
 
 #region Participants
-var participants = api.MapGroup("/participants").WithTags("Perticipants");
+var participants = api.MapGroup("/participants").WithTags("Participants");
 
 participants.MapGet("/", async (IParticipantService service, CancellationToken ct) =>
 {
@@ -156,6 +156,12 @@ var courseInstances = api.MapGroup("/course-instances").WithTags("Course-Instanc
 courseInstances.MapGet("/", async (ICourseInstanceService service, CancellationToken ct) =>
 {
     var items = await service.GetAllAsync(ct);
+    return Results.Ok(items);
+});
+
+courseInstances.MapGet("/with-enrollment-count", async (ICourseInstanceService service, CancellationToken ct) =>
+{
+    var items = await service.GetAllWithEnrollmentCountAsync(ct);
     return Results.Ok(items);
 });
 

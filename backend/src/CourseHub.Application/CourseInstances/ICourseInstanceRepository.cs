@@ -8,4 +8,5 @@ public interface ICourseInstanceRepository : IBaseRepository<CourseInstance>
     Task<bool> CourseExistsAsync(int courseId, CancellationToken ct = default);
     Task<bool> LocationExistsAsync(int locationId, CancellationToken ct = default);
     Task<bool> TeachersExistAsync(IEnumerable<int> teacherIds, CancellationToken ct = default);
+    Task<IReadOnlyList<CourseInstanceWithEnrollmentCountDto>> GetAllWithEnrollmentCountRawSqlAsync(CancellationToken ct = default);
 }

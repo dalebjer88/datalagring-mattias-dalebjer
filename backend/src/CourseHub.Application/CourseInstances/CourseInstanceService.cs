@@ -140,6 +140,11 @@ public sealed class CourseInstanceService : ICourseInstanceService
         return true;
     }
 
+    public Task<IReadOnlyList<CourseInstanceWithEnrollmentCountDto>> GetAllWithEnrollmentCountAsync(CancellationToken ct = default)
+    {
+        return _repo.GetAllWithEnrollmentCountRawSqlAsync(ct);
+    }
+
     private static void Validate(DateOnly startDate, DateOnly endDate, int capacity, int courseId, int locationId)
     {
         if (endDate < startDate) throw new InvalidOperationException("End date must be on or after start date.");

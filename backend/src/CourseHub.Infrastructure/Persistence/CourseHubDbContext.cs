@@ -1,5 +1,6 @@
 ﻿using CourseHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using CourseHub.Infrastructure.Persistence.ReadModels;
 
 namespace CourseHub.Infrastructure.Persistence;
 
@@ -20,5 +21,12 @@ public sealed class CourseHubDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CourseHubDbContext).Assembly);
+        modelBuilder.Entity<CourseInstanceWithEnrollmentCountRow>(builder =>
+        {
+            builder.HasNoKey();
+            builder.ToView(null);
+        });
+
     }
+
 }

@@ -24,3 +24,12 @@ public sealed record CourseInstanceDto(
     int CourseId,
     int LocationId,
     int[] TeacherIds);
+public sealed record CourseInstanceWithEnrollmentCountDto(
+    int Id,
+    DateOnly StartDate,
+    DateOnly EndDate,
+    int Capacity,
+    int CourseId,
+    int LocationId,
+    int EnrollmentCount);
+
