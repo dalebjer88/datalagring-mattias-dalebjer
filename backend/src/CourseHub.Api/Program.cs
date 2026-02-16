@@ -6,6 +6,7 @@ using CourseHub.Application.Locations;
 using CourseHub.Application.Enrollments;
 using CourseHub.Application.Teachers;
 using CourseHub.Application.Registrations;
+using Microsoft.Extensions.Caching.Memory;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,10 +19,9 @@ builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<ITeacherService, TeacherService>();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<IRegistrationService, RegistrationService>();
-
+builder.Services.AddMemoryCache();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("frontend", policy =>
@@ -30,7 +30,6 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
-
 
 var app = builder.Build();
 
@@ -50,17 +49,26 @@ var api = app.MapGroup("/api");
 #region Courses
 var courses = api.MapGroup("/courses").WithTags("Courses");
 
-courses.MapGet("/", async (ICourseService service, CancellationToken ct) =>
+courses.MapGet("/", async (ICourseService service, IMemoryCache cache, CancellationToken ct) =>
 {
-    var courses = await service.GetAllAsync(ct);
-    return Results.Ok(courses);
+    const string key = "courses:all";
+
+    if (cache.TryGetValue(key, out IReadOnlyList<CourseDto>? cached) && cached is not null)
+        return Results.Ok(cached);
+
+    var items = await service.GetAllAsync(ct);
+
+    cache.Set(key, items, TimeSpan.FromSeconds(60));
+    return Results.Ok(items);
 });
 
-courses.MapPost("/", async (CreateCourseRequest request, ICourseService service, CancellationToken ct) =>
+
+courses.MapPost("/", async (CreateCourseRequest request, ICourseService service, IMemoryCache cache, CancellationToken ct) =>
 {
     try
     {
         var created = await service.CreateAsync(request, ct);
+        cache.Remove("courses:all");
         return Results.Created($"/api/courses/{created.Id}", created);
     }
     catch (InvalidOperationException ex) when (ex.Message == "Course code already exists.")
@@ -69,18 +77,24 @@ courses.MapPost("/", async (CreateCourseRequest request, ICourseService service,
     }
 });
 
+
 courses.MapGet("/{id:int}", async (int id, ICourseService service, CancellationToken ct) =>
 {
     var course = await service.GetByIdAsync(id, ct);
     return course is null ? Results.NotFound() : Results.Ok(course);
 });
 
-courses.MapPut("/{id:int}", async (int id, UpdateCourseRequest request, ICourseService service, CancellationToken ct) =>
+courses.MapPut("/{id:int}", async (int id, UpdateCourseRequest request, ICourseService service, IMemoryCache cache, CancellationToken ct) =>
 {
     try
     {
         var updated = await service.UpdateAsync(id, request, ct);
-        return updated is null ? Results.NotFound() : Results.Ok(updated);
+
+        if (updated is null)
+            return Results.NotFound();
+
+        cache.Remove("courses:all");
+        return Results.Ok(updated);
     }
     catch (InvalidOperationException ex) when (ex.Message == "Course code already exists.")
     {
@@ -88,12 +102,17 @@ courses.MapPut("/{id:int}", async (int id, UpdateCourseRequest request, ICourseS
     }
 });
 
-courses.MapDelete("/{id:int}", async (int id, ICourseService service, CancellationToken ct) =>
+
+courses.MapDelete("/{id:int}", async (int id, ICourseService service, IMemoryCache cache, CancellationToken ct) =>
 {
     try
     {
         var deleted = await service.DeleteAsync(id, ct);
-        return deleted ? Results.NoContent() : Results.NotFound();
+        if (!deleted)
+            return Results.NotFound();
+
+        cache.Remove("courses:all");
+        return Results.NoContent();
     }
     catch (InvalidOperationException ex) when (ex.Message == "Course is used by course instances. Remove instances first.")
     {
@@ -207,17 +226,26 @@ courseInstances.MapDelete("/{id:int}", async (int id, ICourseInstanceService ser
 #region Locations
 var locations = api.MapGroup("/locations").WithTags("Locations");
 
-locations.MapGet("/", async (ILocationService service, CancellationToken ct) =>
+locations.MapGet("/", async (ILocationService service, IMemoryCache cache, CancellationToken ct) =>
 {
+    const string key = "locations:all";
+
+    if (cache.TryGetValue(key, out IReadOnlyList<LocationDto>? cached) && cached is not null)
+        return Results.Ok(cached);
+
     var items = await service.GetAllAsync(ct);
+
+    cache.Set(key, items, TimeSpan.FromSeconds(60));
     return Results.Ok(items);
 });
 
-locations.MapPost("/", async (CreateLocationRequest request, ILocationService service, CancellationToken ct) =>
+
+locations.MapPost("/", async (CreateLocationRequest request, ILocationService service, IMemoryCache cache, CancellationToken ct) =>
 {
     try
     {
         var created = await service.CreateAsync(request, ct);
+        cache.Remove("locations:all");
         return Results.Created($"/api/locations/{created.Id}", created);
     }
     catch (InvalidOperationException ex) when (ex.Message == "Location name already exists.")
@@ -226,18 +254,24 @@ locations.MapPost("/", async (CreateLocationRequest request, ILocationService se
     }
 });
 
+
 locations.MapGet("/{id:int}", async (int id, ILocationService service, CancellationToken ct) =>
 {
     var item = await service.GetByIdAsync(id, ct);
     return item is null ? Results.NotFound() : Results.Ok(item);
 });
 
-locations.MapPut("/{id:int}", async (int id, UpdateLocationRequest request, ILocationService service, CancellationToken ct) =>
+locations.MapPut("/{id:int}", async (int id, UpdateLocationRequest request, ILocationService service, IMemoryCache cache, CancellationToken ct) =>
 {
     try
     {
         var updated = await service.UpdateAsync(id, request, ct);
-        return updated is null ? Results.NotFound() : Results.Ok(updated);
+
+        if (updated is null)
+            return Results.NotFound();
+
+        cache.Remove("locations:all");
+        return Results.Ok(updated);
     }
     catch (InvalidOperationException ex) when (ex.Message == "Location name already exists.")
     {
@@ -245,18 +279,25 @@ locations.MapPut("/{id:int}", async (int id, UpdateLocationRequest request, ILoc
     }
 });
 
-locations.MapDelete("/{id:int}", async (int id, ILocationService service, CancellationToken ct) =>
+
+locations.MapDelete("/{id:int}", async (int id, ILocationService service, IMemoryCache cache, CancellationToken ct) =>
 {
     try
     {
         var deleted = await service.DeleteAsync(id, ct);
-        return deleted ? Results.NoContent() : Results.NotFound();
+
+        if (!deleted)
+            return Results.NotFound();
+
+        cache.Remove("locations:all");
+        return Results.NoContent();
     }
     catch (InvalidOperationException ex) when (ex.Message == "Location is used by course instances. Remove instances first.")
     {
         return Results.Conflict(new { message = ex.Message });
     }
 });
+
 #endregion
 
 #region Enrollments
