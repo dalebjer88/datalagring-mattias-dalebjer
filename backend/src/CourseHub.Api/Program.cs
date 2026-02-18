@@ -36,6 +36,21 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+
+
+app.UseCors("frontend");
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.MapGet("/", () => "CourseHub API is running");
+app.MapGet("/health", () => "OK");
+
+var api = app.MapGroup("/api");
+
 #region Exception Handling
 app.UseExceptionHandler(handlerApp =>
 {
@@ -98,19 +113,6 @@ app.UseExceptionHandler(handlerApp =>
     });
 });
 #endregion
-
-app.UseCors("frontend");
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.MapGet("/", () => "CourseHub API is running");
-app.MapGet("/health", () => "OK");
-
-var api = app.MapGroup("/api");
 
 #region Courses
 var courses = api.MapGroup("/courses").WithTags("Courses");
