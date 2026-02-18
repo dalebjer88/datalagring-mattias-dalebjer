@@ -1,4 +1,5 @@
-﻿using CourseHub.Domain.Entities;
+﻿using CourseHub.Application.Common.Exceptions;
+using CourseHub.Domain.Entities;
 
 namespace CourseHub.Application.Locations;
 
@@ -17,7 +18,7 @@ public sealed class LocationService : ILocationService
         Validate(name);
 
         if (await _repo.NameExistsAsync(name, ct))
-            throw new InvalidOperationException("Location name already exists.");
+            throw new ConflictException("Location name already exists.");
 
         var entity = new Location
         {
@@ -39,19 +40,18 @@ public sealed class LocationService : ILocationService
             .ToList();
     }
 
-
-    public async Task<LocationDto?> GetByIdAsync(int id, CancellationToken ct = default)
+    public async Task<LocationDto> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var entity = await _repo.GetByIdAsync(id, ct);
-        if (entity is null) return null;
+        if (entity is null) throw new NotFoundException("Location not found.");
 
         return new LocationDto(entity.Id, entity.Name, 0);
     }
 
-    public async Task<LocationDto?> UpdateAsync(int id, UpdateLocationRequest request, CancellationToken ct = default)
+    public async Task<LocationDto> UpdateAsync(int id, UpdateLocationRequest request, CancellationToken ct = default)
     {
         var entity = await _repo.GetForUpdateAsync(id, ct);
-        if (entity is null) return null;
+        if (entity is null) throw new NotFoundException("Location not found.");
 
         var name = request.Name.Trim();
         Validate(name);
@@ -60,7 +60,7 @@ public sealed class LocationService : ILocationService
         {
             var existing = await _repo.GetByNameAsync(name, ct);
             if (existing is not null && existing.Id != id)
-                throw new InvalidOperationException("Location name already exists.");
+                throw new ConflictException("Location name already exists.");
         }
 
         entity.Name = name;
@@ -70,24 +70,21 @@ public sealed class LocationService : ILocationService
         return new LocationDto(entity.Id, entity.Name, 0);
     }
 
-    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+    public async Task DeleteAsync(int id, CancellationToken ct = default)
     {
         var entity = await _repo.GetForUpdateAsync(id, ct);
-        if (entity is null) return false;
+        if (entity is null) throw new NotFoundException("Location not found.");
 
         if (await _repo.IsUsedByCourseInstancesAsync(id, ct))
-            throw new InvalidOperationException("Location is used by course instances. Remove instances first.");
+            throw new ConflictException("Location is used by course instances. Remove instances first.");
 
         await _repo.RemoveAsync(entity, ct);
         await _repo.SaveChangesAsync(ct);
-
-        return true;
     }
-
 
     private static void Validate(string name)
     {
-        if (string.IsNullOrWhiteSpace(name)) throw new InvalidOperationException("Location name is required.");
-        if (name.Length > 100) throw new InvalidOperationException("Location name is too long.");
+        if (string.IsNullOrWhiteSpace(name)) throw new ValidationException("Location name is required.");
+        if (name.Length > 100) throw new ValidationException("Location name is too long.");
     }
 }

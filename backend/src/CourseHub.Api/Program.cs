@@ -1,13 +1,15 @@
+using CourseHub.Application.Common.Exceptions;
 using CourseHub.Application.CourseInstances;
 using CourseHub.Application.Courses;
-using CourseHub.Application.Participants;
-using CourseHub.Infrastructure;
-using CourseHub.Application.Locations;
 using CourseHub.Application.Enrollments;
-using CourseHub.Application.Teachers;
+using CourseHub.Application.Locations;
+using CourseHub.Application.Participants;
 using CourseHub.Application.Registrations;
+using CourseHub.Application.Teachers;
+using CourseHub.Infrastructure;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +24,7 @@ builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddProblemDetails();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("frontend", policy =>
@@ -32,6 +35,69 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+#region Exception Handling
+app.UseExceptionHandler(handlerApp =>
+{
+    handlerApp.Run(async context =>
+    {
+        var feature = context.Features.Get<IExceptionHandlerFeature>();
+        var ex = feature?.Error;
+
+        if (ex is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "An unexpected error occurred."
+            });
+            return;
+        }
+
+        if (ex is ValidationException vex)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new ValidationProblemDetails(vex.Errors)
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = vex.Message
+            });
+
+            return;
+        }
+
+        if (ex is NotFoundException nfex)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = nfex.Message
+            });
+            return;
+        }
+
+        if (ex is ConflictException cfex)
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = cfex.Message
+            });
+            return;
+        }
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = StatusCodes.Status500InternalServerError,
+            Title = "An unexpected error occurred."
+        });
+    });
+});
+#endregion
 
 app.UseCors("frontend");
 
@@ -62,63 +128,33 @@ courses.MapGet("/", async (ICourseService service, IMemoryCache cache, Cancellat
     return Results.Ok(items);
 });
 
-
 courses.MapPost("/", async (CreateCourseRequest request, ICourseService service, IMemoryCache cache, CancellationToken ct) =>
 {
-    try
-    {
-        var created = await service.CreateAsync(request, ct);
-        cache.Remove("courses:all");
-        return Results.Created($"/api/courses/{created.Id}", created);
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Course code already exists.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
+    var created = await service.CreateAsync(request, ct);
+    cache.Remove("courses:all");
+    return Results.Created($"/api/courses/{created.Id}", created);
 });
-
 
 courses.MapGet("/{id:int}", async (int id, ICourseService service, CancellationToken ct) =>
 {
     var course = await service.GetByIdAsync(id, ct);
-    return course is null ? Results.NotFound() : Results.Ok(course);
+    return Results.Ok(course);
 });
 
 courses.MapPut("/{id:int}", async (int id, UpdateCourseRequest request, ICourseService service, IMemoryCache cache, CancellationToken ct) =>
 {
-    try
-    {
-        var updated = await service.UpdateAsync(id, request, ct);
-
-        if (updated is null)
-            return Results.NotFound();
-
-        cache.Remove("courses:all");
-        return Results.Ok(updated);
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Course code already exists.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
+    var updated = await service.UpdateAsync(id, request, ct);
+    cache.Remove("courses:all");
+    return Results.Ok(updated);
 });
-
 
 courses.MapDelete("/{id:int}", async (int id, ICourseService service, IMemoryCache cache, CancellationToken ct) =>
 {
-    try
-    {
-        var deleted = await service.DeleteAsync(id, ct);
-        if (!deleted)
-            return Results.NotFound();
-
-        cache.Remove("courses:all");
-        return Results.NoContent();
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Course is used by course instances. Remove instances first.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
+    await service.DeleteAsync(id, ct);
+    cache.Remove("courses:all");
+    return Results.NoContent();
 });
+
 #endregion
 
 #region Participants
@@ -132,41 +168,28 @@ participants.MapGet("/", async (IParticipantService service, CancellationToken c
 
 participants.MapPost("/", async (CreateParticipantRequest request, IParticipantService service, CancellationToken ct) =>
 {
-    try
-    {
-        var created = await service.CreateAsync(request, ct);
-        return Results.Created($"/api/participants/{created.Id}", created);
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Email already exists.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
+    var created = await service.CreateAsync(request, ct);
+    return Results.Created($"/api/participants/{created.Id}", created);
 });
 
 participants.MapGet("/{id:int}", async (int id, IParticipantService service, CancellationToken ct) =>
 {
     var item = await service.GetByIdAsync(id, ct);
-    return item is null ? Results.NotFound() : Results.Ok(item);
+    return Results.Ok(item);
 });
 
 participants.MapPut("/{id:int}", async (int id, UpdateParticipantRequest request, IParticipantService service, CancellationToken ct) =>
 {
-    try
-    {
-        var updated = await service.UpdateAsync(id, request, ct);
-        return updated is null ? Results.NotFound() : Results.Ok(updated);
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Email already exists.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
+    var updated = await service.UpdateAsync(id, request, ct);
+    return Results.Ok(updated);
 });
 
 participants.MapDelete("/{id:int}", async (int id, IParticipantService service, CancellationToken ct) =>
 {
-    var deleted = await service.DeleteAsync(id, ct);
-    return deleted ? Results.NoContent() : Results.NotFound();
+    await service.DeleteAsync(id, ct);
+    return Results.NoContent();
 });
+
 #endregion
 
 #region CourseInstances
@@ -186,41 +209,28 @@ courseInstances.MapGet("/with-enrollment-count", async (ICourseInstanceService s
 
 courseInstances.MapPost("/", async (CreateCourseInstanceRequest request, ICourseInstanceService service, CancellationToken ct) =>
 {
-    try
-    {
-        var created = await service.CreateAsync(request, ct);
-        return Results.Created($"/api/course-instances/{created.Id}", created);
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { message = ex.Message });
-    }
+    var created = await service.CreateAsync(request, ct);
+    return Results.Created($"/api/course-instances/{created.Id}", created);
 });
 
 courseInstances.MapGet("/{id:int}", async (int id, ICourseInstanceService service, CancellationToken ct) =>
 {
     var item = await service.GetByIdAsync(id, ct);
-    return item is null ? Results.NotFound() : Results.Ok(item);
+    return Results.Ok(item);
 });
 
 courseInstances.MapPut("/{id:int}", async (int id, UpdateCourseInstanceRequest request, ICourseInstanceService service, CancellationToken ct) =>
 {
-    try
-    {
-        var updated = await service.UpdateAsync(id, request, ct);
-        return updated is null ? Results.NotFound() : Results.Ok(updated);
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { message = ex.Message });
-    }
+    var updated = await service.UpdateAsync(id, request, ct);
+    return Results.Ok(updated);
 });
 
 courseInstances.MapDelete("/{id:int}", async (int id, ICourseInstanceService service, CancellationToken ct) =>
 {
-    var deleted = await service.DeleteAsync(id, ct);
-    return deleted ? Results.NoContent() : Results.NotFound();
+    await service.DeleteAsync(id, ct);
+    return Results.NoContent();
 });
+
 #endregion
 
 #region Locations
@@ -239,63 +249,31 @@ locations.MapGet("/", async (ILocationService service, IMemoryCache cache, Cance
     return Results.Ok(items);
 });
 
-
 locations.MapPost("/", async (CreateLocationRequest request, ILocationService service, IMemoryCache cache, CancellationToken ct) =>
 {
-    try
-    {
-        var created = await service.CreateAsync(request, ct);
-        cache.Remove("locations:all");
-        return Results.Created($"/api/locations/{created.Id}", created);
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Location name already exists.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
+    var created = await service.CreateAsync(request, ct);
+    cache.Remove("locations:all");
+    return Results.Created($"/api/locations/{created.Id}", created);
 });
-
 
 locations.MapGet("/{id:int}", async (int id, ILocationService service, CancellationToken ct) =>
 {
     var item = await service.GetByIdAsync(id, ct);
-    return item is null ? Results.NotFound() : Results.Ok(item);
+    return Results.Ok(item);
 });
 
 locations.MapPut("/{id:int}", async (int id, UpdateLocationRequest request, ILocationService service, IMemoryCache cache, CancellationToken ct) =>
 {
-    try
-    {
-        var updated = await service.UpdateAsync(id, request, ct);
-
-        if (updated is null)
-            return Results.NotFound();
-
-        cache.Remove("locations:all");
-        return Results.Ok(updated);
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Location name already exists.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
+    var updated = await service.UpdateAsync(id, request, ct);
+    cache.Remove("locations:all");
+    return Results.Ok(updated);
 });
-
 
 locations.MapDelete("/{id:int}", async (int id, ILocationService service, IMemoryCache cache, CancellationToken ct) =>
 {
-    try
-    {
-        var deleted = await service.DeleteAsync(id, ct);
-
-        if (!deleted)
-            return Results.NotFound();
-
-        cache.Remove("locations:all");
-        return Results.NoContent();
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Location is used by course instances. Remove instances first.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
+    await service.DeleteAsync(id, ct);
+    cache.Remove("locations:all");
+    return Results.NoContent();
 });
 
 #endregion
@@ -311,45 +289,28 @@ enrollments.MapGet("/", async (IEnrollmentService service, CancellationToken ct)
 
 enrollments.MapPost("/", async (CreateEnrollmentRequest request, IEnrollmentService service, CancellationToken ct) =>
 {
-    try
-    {
-        var created = await service.CreateAsync(request, ct);
-        return Results.Created($"/api/enrollments/{created.Id}", created);
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Enrollment already exists.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { message = ex.Message });
-    }
+    var created = await service.CreateAsync(request, ct);
+    return Results.Created($"/api/enrollments/{created.Id}", created);
 });
 
 enrollments.MapGet("/{id:int}", async (int id, IEnrollmentService service, CancellationToken ct) =>
 {
     var item = await service.GetByIdAsync(id, ct);
-    return item is null ? Results.NotFound() : Results.Ok(item);
+    return Results.Ok(item);
 });
 
 enrollments.MapPut("/{id:int}", async (int id, UpdateEnrollmentRequest request, IEnrollmentService service, CancellationToken ct) =>
 {
-    try
-    {
-        var updated = await service.UpdateAsync(id, request, ct);
-        return updated is null ? Results.NotFound() : Results.Ok(updated);
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { message = ex.Message });
-    }
+    var updated = await service.UpdateAsync(id, request, ct);
+    return Results.Ok(updated);
 });
 
 enrollments.MapDelete("/{id:int}", async (int id, IEnrollmentService service, CancellationToken ct) =>
 {
-    var deleted = await service.DeleteAsync(id, ct);
-    return deleted ? Results.NoContent() : Results.NotFound();
+    await service.DeleteAsync(id, ct);
+    return Results.NoContent();
 });
+
 #endregion
 
 #region Teachers
@@ -363,56 +324,28 @@ teachers.MapGet("/", async (ITeacherService service, CancellationToken ct) =>
 
 teachers.MapPost("/", async (CreateTeacherRequest request, ITeacherService service, CancellationToken ct) =>
 {
-    try
-    {
-        var created = await service.CreateAsync(request, ct);
-        return Results.Created($"/api/teachers/{created.Id}", created);
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Email already exists.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { message = ex.Message });
-    }
+    var created = await service.CreateAsync(request, ct);
+    return Results.Created($"/api/teachers/{created.Id}", created);
 });
 
 teachers.MapGet("/{id:int}", async (int id, ITeacherService service, CancellationToken ct) =>
 {
     var item = await service.GetByIdAsync(id, ct);
-    return item is null ? Results.NotFound() : Results.Ok(item);
+    return Results.Ok(item);
 });
 
 teachers.MapPut("/{id:int}", async (int id, UpdateTeacherRequest request, ITeacherService service, CancellationToken ct) =>
 {
-    try
-    {
-        var updated = await service.UpdateAsync(id, request, ct);
-        return updated is null ? Results.NotFound() : Results.Ok(updated);
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Email already exists.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { message = ex.Message });
-    }
+    var updated = await service.UpdateAsync(id, request, ct);
+    return Results.Ok(updated);
 });
 
 teachers.MapDelete("/{id:int}", async (int id, ITeacherService service, CancellationToken ct) =>
 {
-    try
-    {
-        var deleted = await service.DeleteAsync(id, ct);
-        return deleted ? Results.NoContent() : Results.NotFound();
-    }
-    catch (InvalidOperationException ex) when (ex.Message == "Teacher is used by course instances. Remove links first.")
-    {
-        return Results.Conflict(new { message = ex.Message });
-    }
+    await service.DeleteAsync(id, ct);
+    return Results.NoContent();
 });
+
 #endregion
 
 #region Registrations
@@ -421,15 +354,8 @@ var registrations = api.MapGroup("/registrations").WithTags("Registrations");
 registrations.MapPost("/course-instance-with-enrollments",
     async (CreateCourseInstanceWithEnrollmentsRequest request, IRegistrationService service, CancellationToken ct) =>
     {
-        try
-        {
-            var result = await service.CreateCourseInstanceWithEnrollmentsAsync(request, ct);
-            return Results.Created($"/api/course-instances/{result.CourseInstanceId}", result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
+        var result = await service.CreateCourseInstanceWithEnrollmentsAsync(request, ct);
+        return Results.Created($"/api/course-instances/{result.CourseInstanceId}", result);
     });
 #endregion
 

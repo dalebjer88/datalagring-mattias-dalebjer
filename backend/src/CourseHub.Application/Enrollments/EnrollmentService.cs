@@ -1,4 +1,5 @@
-﻿using CourseHub.Domain.Entities;
+﻿using CourseHub.Application.Common.Exceptions;
+using CourseHub.Domain.Entities;
 
 namespace CourseHub.Application.Enrollments;
 
@@ -20,13 +21,13 @@ public sealed class EnrollmentService : IEnrollmentService
         Validate(status);
 
         if (!await _repo.ParticipantExistsAsync(participantId, ct))
-            throw new InvalidOperationException("Participant does not exist.");
+            throw new ValidationException("Participant does not exist.");
 
         if (!await _repo.CourseInstanceExistsAsync(courseInstanceId, ct))
-            throw new InvalidOperationException("Course instance does not exist.");
+            throw new ValidationException("Course instance does not exist.");
 
         if (await _repo.EnrollmentExistsAsync(participantId, courseInstanceId, ct))
-            throw new InvalidOperationException("Enrollment already exists.");
+            throw new ConflictException("Enrollment already exists.");
 
         var enrollment = new Enrollment
         {
@@ -51,18 +52,18 @@ public sealed class EnrollmentService : IEnrollmentService
             .ToList();
     }
 
-    public async Task<EnrollmentDto?> GetByIdAsync(int id, CancellationToken ct = default)
+    public async Task<EnrollmentDto> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var item = await _repo.GetByIdAsync(id, ct);
-        if (item is null) return null;
+        if (item is null) throw new NotFoundException("Enrollment not found.");
 
         return new EnrollmentDto(item.Id, item.ParticipantId, item.CourseInstanceId, item.RegisteredAt, item.Status);
     }
 
-    public async Task<EnrollmentDto?> UpdateAsync(int id, UpdateEnrollmentRequest request, CancellationToken ct = default)
+    public async Task<EnrollmentDto> UpdateAsync(int id, UpdateEnrollmentRequest request, CancellationToken ct = default)
     {
         var item = await _repo.GetForUpdateAsync(id, ct);
-        if (item is null) return null;
+        if (item is null) throw new NotFoundException("Enrollment not found.");
 
         var status = request.Status.Trim();
         Validate(status);
@@ -74,20 +75,18 @@ public sealed class EnrollmentService : IEnrollmentService
         return new EnrollmentDto(item.Id, item.ParticipantId, item.CourseInstanceId, item.RegisteredAt, item.Status);
     }
 
-    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+    public async Task DeleteAsync(int id, CancellationToken ct = default)
     {
         var item = await _repo.GetForUpdateAsync(id, ct);
-        if (item is null) return false;
+        if (item is null) throw new NotFoundException("Enrollment not found.");
 
         await _repo.RemoveAsync(item, ct);
         await _repo.SaveChangesAsync(ct);
-
-        return true;
     }
 
     private static void Validate(string status)
     {
-        if (string.IsNullOrWhiteSpace(status)) throw new InvalidOperationException("Status is required.");
-        if (status.Length > 30) throw new InvalidOperationException("Status is too long.");
+        if (string.IsNullOrWhiteSpace(status)) throw new ValidationException("Status is required.");
+        if (status.Length > 30) throw new ValidationException("Status is too long.");
     }
 }

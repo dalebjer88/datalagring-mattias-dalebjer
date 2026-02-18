@@ -1,4 +1,5 @@
-﻿using CourseHub.Domain.Entities;
+﻿using CourseHub.Application.Common.Exceptions;
+using CourseHub.Domain.Entities;
 
 namespace CourseHub.Application.CourseInstances;
 
@@ -16,10 +17,10 @@ public sealed class CourseInstanceService : ICourseInstanceService
         Validate(request.StartDate, request.EndDate, request.Capacity, request.CourseId, request.LocationId);
 
         if (!await _repo.CourseExistsAsync(request.CourseId, ct))
-            throw new InvalidOperationException("Course does not exist.");
+            throw new ValidationException("Course does not exist.");
 
         if (!await _repo.LocationExistsAsync(request.LocationId, ct))
-            throw new InvalidOperationException("Location does not exist.");
+            throw new ValidationException("Location does not exist.");
 
         var teacherIds = (request.TeacherIds ?? Array.Empty<int>())
             .Where(x => x > 0)
@@ -27,10 +28,10 @@ public sealed class CourseInstanceService : ICourseInstanceService
             .ToArray();
 
         if (teacherIds.Length == 0)
-            throw new InvalidOperationException("At least one teacher is required.");
+            throw new ValidationException("At least one teacher is required.");
 
         if (!await _repo.TeachersExistAsync(teacherIds, ct))
-            throw new InvalidOperationException("One or more teachers do not exist.");
+            throw new ValidationException("One or more teachers do not exist.");
 
         var entity = new CourseInstance
         {
@@ -73,27 +74,27 @@ public sealed class CourseInstanceService : ICourseInstanceService
             .ToList();
     }
 
-    public async Task<CourseInstanceDto?> GetByIdAsync(int id, CancellationToken ct = default)
+    public async Task<CourseInstanceDto> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var entity = await _repo.GetByIdAsync(id, ct);
-        if (entity is null) return null;
+        if (entity is null) throw new NotFoundException("Course instance not found.");
 
         var teacherIds = entity.CourseInstanceTeachers.Select(t => t.TeacherId).ToArray();
         return new CourseInstanceDto(entity.Id, entity.StartDate, entity.EndDate, entity.Capacity, entity.CourseId, entity.LocationId, teacherIds);
     }
 
-    public async Task<CourseInstanceDto?> UpdateAsync(int id, UpdateCourseInstanceRequest request, CancellationToken ct = default)
+    public async Task<CourseInstanceDto> UpdateAsync(int id, UpdateCourseInstanceRequest request, CancellationToken ct = default)
     {
         Validate(request.StartDate, request.EndDate, request.Capacity, request.CourseId, request.LocationId);
 
         var entity = await _repo.GetForUpdateAsync(id, ct);
-        if (entity is null) return null;
+        if (entity is null) throw new NotFoundException("Course instance not found.");
 
         if (!await _repo.CourseExistsAsync(request.CourseId, ct))
-            throw new InvalidOperationException("Course does not exist.");
+            throw new ValidationException("Course does not exist.");
 
         if (!await _repo.LocationExistsAsync(request.LocationId, ct))
-            throw new InvalidOperationException("Location does not exist.");
+            throw new ValidationException("Location does not exist.");
 
         var teacherIds = (request.TeacherIds ?? Array.Empty<int>())
             .Where(x => x > 0)
@@ -101,10 +102,10 @@ public sealed class CourseInstanceService : ICourseInstanceService
             .ToArray();
 
         if (teacherIds.Length == 0)
-            throw new InvalidOperationException("At least one teacher is required.");
+            throw new ValidationException("At least one teacher is required.");
 
         if (!await _repo.TeachersExistAsync(teacherIds, ct))
-            throw new InvalidOperationException("One or more teachers do not exist.");
+            throw new ValidationException("One or more teachers do not exist.");
 
         entity.StartDate = request.StartDate;
         entity.EndDate = request.EndDate;
@@ -129,15 +130,13 @@ public sealed class CourseInstanceService : ICourseInstanceService
         return new CourseInstanceDto(entity.Id, entity.StartDate, entity.EndDate, entity.Capacity, entity.CourseId, entity.LocationId, dtoTeacherIds);
     }
 
-    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+    public async Task DeleteAsync(int id, CancellationToken ct = default)
     {
         var entity = await _repo.GetForUpdateAsync(id, ct);
-        if (entity is null) return false;
+        if (entity is null) throw new NotFoundException("Course instance not found.");
 
         await _repo.RemoveAsync(entity, ct);
         await _repo.SaveChangesAsync(ct);
-
-        return true;
     }
 
     public Task<IReadOnlyList<CourseInstanceWithEnrollmentCountDto>> GetAllWithEnrollmentCountAsync(CancellationToken ct = default)
@@ -147,9 +146,9 @@ public sealed class CourseInstanceService : ICourseInstanceService
 
     private static void Validate(DateOnly startDate, DateOnly endDate, int capacity, int courseId, int locationId)
     {
-        if (endDate < startDate) throw new InvalidOperationException("End date must be on or after start date.");
-        if (capacity <= 0) throw new InvalidOperationException("Capacity must be greater than 0.");
-        if (courseId <= 0) throw new InvalidOperationException("CourseId is required.");
-        if (locationId <= 0) throw new InvalidOperationException("LocationId is required.");
+        if (endDate < startDate) throw new ValidationException("End date must be on or after start date.");
+        if (capacity <= 0) throw new ValidationException("Capacity must be greater than 0.");
+        if (courseId <= 0) throw new ValidationException("CourseId is required.");
+        if (locationId <= 0) throw new ValidationException("LocationId is required.");
     }
 }

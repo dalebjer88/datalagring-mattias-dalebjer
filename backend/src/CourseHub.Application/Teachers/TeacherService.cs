@@ -1,4 +1,5 @@
-﻿using CourseHub.Domain.Entities;
+﻿using CourseHub.Application.Common.Exceptions;
+using CourseHub.Domain.Entities;
 
 namespace CourseHub.Application.Teachers;
 
@@ -21,7 +22,7 @@ public sealed class TeacherService : ITeacherService
         Validate(email, firstName, lastName, expertise);
 
         if (await _repo.EmailExistsAsync(email, ct))
-            throw new InvalidOperationException("Email already exists.");
+            throw new ConflictException("Email already exists.");
 
         var teacher = new Teacher
         {
@@ -46,18 +47,18 @@ public sealed class TeacherService : ITeacherService
             .ToList();
     }
 
-    public async Task<TeacherDto?> GetByIdAsync(int id, CancellationToken ct = default)
+    public async Task<TeacherDto> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var teacher = await _repo.GetByIdAsync(id, ct);
-        if (teacher is null) return null;
+        if (teacher is null) throw new NotFoundException("Teacher not found.");
 
         return new TeacherDto(teacher.Id, teacher.Email, teacher.FirstName, teacher.LastName, teacher.Expertise);
     }
 
-    public async Task<TeacherDto?> UpdateAsync(int id, UpdateTeacherRequest request, CancellationToken ct = default)
+    public async Task<TeacherDto> UpdateAsync(int id, UpdateTeacherRequest request, CancellationToken ct = default)
     {
         var teacher = await _repo.GetForUpdateAsync(id, ct);
-        if (teacher is null) return null;
+        if (teacher is null) throw new NotFoundException("Teacher not found.");
 
         var email = NormalizeEmail(request.Email);
         var firstName = request.FirstName.Trim();
@@ -70,7 +71,7 @@ public sealed class TeacherService : ITeacherService
         {
             var existing = await _repo.GetByEmailAsync(email, ct);
             if (existing is not null && existing.Id != id)
-                throw new InvalidOperationException("Email already exists.");
+                throw new ConflictException("Email already exists.");
         }
 
         teacher.Email = email;
@@ -83,18 +84,16 @@ public sealed class TeacherService : ITeacherService
         return new TeacherDto(teacher.Id, teacher.Email, teacher.FirstName, teacher.LastName, teacher.Expertise);
     }
 
-    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+    public async Task DeleteAsync(int id, CancellationToken ct = default)
     {
         var teacher = await _repo.GetForUpdateAsync(id, ct);
-        if (teacher is null) return false;
+        if (teacher is null) throw new NotFoundException("Teacher not found.");
 
         if (await _repo.IsUsedByCourseInstancesAsync(id, ct))
-            throw new InvalidOperationException("Teacher is used by course instances. Remove links first.");
+            throw new ConflictException("Teacher is used by course instances. Remove links first.");
 
         await _repo.RemoveAsync(teacher, ct);
         await _repo.SaveChangesAsync(ct);
-
-        return true;
     }
 
     private static string NormalizeEmail(string value)
@@ -104,14 +103,14 @@ public sealed class TeacherService : ITeacherService
 
     private static void Validate(string email, string firstName, string lastName, string expertise)
     {
-        if (string.IsNullOrWhiteSpace(email)) throw new InvalidOperationException("Email is required.");
-        if (string.IsNullOrWhiteSpace(firstName)) throw new InvalidOperationException("First name is required.");
-        if (string.IsNullOrWhiteSpace(lastName)) throw new InvalidOperationException("Last name is required.");
-        if (string.IsNullOrWhiteSpace(expertise)) throw new InvalidOperationException("Expertise is required.");
+        if (string.IsNullOrWhiteSpace(email)) throw new ValidationException("Email is required.");
+        if (string.IsNullOrWhiteSpace(firstName)) throw new ValidationException("First name is required.");
+        if (string.IsNullOrWhiteSpace(lastName)) throw new ValidationException("Last name is required.");
+        if (string.IsNullOrWhiteSpace(expertise)) throw new ValidationException("Expertise is required.");
 
-        if (email.Length > 254) throw new InvalidOperationException("Email is too long.");
-        if (firstName.Length > 100) throw new InvalidOperationException("First name is too long.");
-        if (lastName.Length > 100) throw new InvalidOperationException("Last name is too long.");
-        if (expertise.Length > 200) throw new InvalidOperationException("Expertise is too long.");
+        if (email.Length > 254) throw new ValidationException("Email is too long.");
+        if (firstName.Length > 100) throw new ValidationException("First name is too long.");
+        if (lastName.Length > 100) throw new ValidationException("Last name is too long.");
+        if (expertise.Length > 200) throw new ValidationException("Expertise is too long.");
     }
 }

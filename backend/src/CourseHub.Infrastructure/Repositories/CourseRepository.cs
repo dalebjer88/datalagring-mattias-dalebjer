@@ -37,6 +37,7 @@ public sealed class CourseRepository : BaseRepository<Course>, ICourseRepository
     public async Task<IReadOnlyList<CourseWithInstanceCount>> GetAllWithInstanceCountAsync(CancellationToken ct = default)
     {
         var items = await Db.Courses
+            .AsNoTracking()
             .Select(c => new CourseWithInstanceCount(
                 c,
                 Db.CourseInstances.Count(ci => ci.CourseId == c.Id)

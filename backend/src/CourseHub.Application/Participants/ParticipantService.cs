@@ -1,4 +1,5 @@
-﻿using CourseHub.Domain.Entities;
+﻿using CourseHub.Application.Common.Exceptions;
+using CourseHub.Domain.Entities;
 
 namespace CourseHub.Application.Participants;
 
@@ -21,7 +22,7 @@ public sealed class ParticipantService : IParticipantService
         Validate(email, firstName, lastName, phoneNumber);
 
         if (await _repo.EmailExistsAsync(email, ct))
-            throw new InvalidOperationException("Email already exists.");
+            throw new ConflictException("Email already exists.");
 
         var participant = new Participant
         {
@@ -46,18 +47,18 @@ public sealed class ParticipantService : IParticipantService
             .ToList();
     }
 
-    public async Task<ParticipantDto?> GetByIdAsync(int id, CancellationToken ct = default)
+    public async Task<ParticipantDto> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var participant = await _repo.GetByIdAsync(id, ct);
-        if (participant is null) return null;
+        if (participant is null) throw new NotFoundException("Participant not found.");
 
         return new ParticipantDto(participant.Id, participant.Email, participant.FirstName, participant.LastName, participant.PhoneNumber);
     }
 
-    public async Task<ParticipantDto?> UpdateAsync(int id, UpdateParticipantRequest request, CancellationToken ct = default)
+    public async Task<ParticipantDto> UpdateAsync(int id, UpdateParticipantRequest request, CancellationToken ct = default)
     {
         var participant = await _repo.GetForUpdateAsync(id, ct);
-        if (participant is null) return null;
+        if (participant is null) throw new NotFoundException("Participant not found.");
 
         var email = NormalizeEmail(request.Email);
         var firstName = request.FirstName.Trim();
@@ -70,7 +71,7 @@ public sealed class ParticipantService : IParticipantService
         {
             var existing = await _repo.GetByEmailAsync(email, ct);
             if (existing is not null && existing.Id != id)
-                throw new InvalidOperationException("Email already exists.");
+                throw new ConflictException("Email already exists.");
         }
 
         participant.Email = email;
@@ -83,15 +84,13 @@ public sealed class ParticipantService : IParticipantService
         return new ParticipantDto(participant.Id, participant.Email, participant.FirstName, participant.LastName, participant.PhoneNumber);
     }
 
-    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+    public async Task DeleteAsync(int id, CancellationToken ct = default)
     {
         var participant = await _repo.GetForUpdateAsync(id, ct);
-        if (participant is null) return false;
+        if (participant is null) throw new NotFoundException("Participant not found.");
 
         await _repo.RemoveAsync(participant, ct);
         await _repo.SaveChangesAsync(ct);
-
-        return true;
     }
 
     private static string NormalizeEmail(string value)
@@ -101,14 +100,14 @@ public sealed class ParticipantService : IParticipantService
 
     private static void Validate(string email, string firstName, string lastName, string phoneNumber)
     {
-        if (string.IsNullOrWhiteSpace(email)) throw new InvalidOperationException("Email is required.");
-        if (string.IsNullOrWhiteSpace(firstName)) throw new InvalidOperationException("First name is required.");
-        if (string.IsNullOrWhiteSpace(lastName)) throw new InvalidOperationException("Last name is required.");
-        if (string.IsNullOrWhiteSpace(phoneNumber)) throw new InvalidOperationException("Phone number is required.");
+        if (string.IsNullOrWhiteSpace(email)) throw new ValidationException("Email is required.");
+        if (string.IsNullOrWhiteSpace(firstName)) throw new ValidationException("First name is required.");
+        if (string.IsNullOrWhiteSpace(lastName)) throw new ValidationException("Last name is required.");
+        if (string.IsNullOrWhiteSpace(phoneNumber)) throw new ValidationException("Phone number is required.");
 
-        if (email.Length > 254) throw new InvalidOperationException("Email is too long.");
-        if (firstName.Length > 100) throw new InvalidOperationException("First name is too long.");
-        if (lastName.Length > 100) throw new InvalidOperationException("Last name is too long.");
-        if (phoneNumber.Length > 30) throw new InvalidOperationException("Phone number is too long.");
+        if (email.Length > 254) throw new ValidationException("Email is too long.");
+        if (firstName.Length > 100) throw new ValidationException("First name is too long.");
+        if (lastName.Length > 100) throw new ValidationException("Last name is too long.");
+        if (phoneNumber.Length > 30) throw new ValidationException("Phone number is too long.");
     }
 }

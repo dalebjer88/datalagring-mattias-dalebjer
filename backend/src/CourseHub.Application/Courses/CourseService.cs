@@ -1,4 +1,5 @@
-﻿using CourseHub.Domain.Entities;
+﻿using CourseHub.Application.Common.Exceptions;
+using CourseHub.Domain.Entities;
 
 namespace CourseHub.Application.Courses;
 
@@ -18,7 +19,7 @@ public sealed class CourseService : ICourseService
         var description = request.Description.Trim();
 
         if (await _repo.CourseCodeExistsAsync(courseCode, ct))
-            throw new InvalidOperationException("Course code already exists.");
+            throw new ConflictException("Course code already exists.");
 
         var course = new Course
         {
@@ -48,19 +49,18 @@ public sealed class CourseService : ICourseService
             .ToList();
     }
 
-
-    public async Task<CourseDto?> GetByIdAsync(int id, CancellationToken ct = default)
+    public async Task<CourseDto> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var course = await _repo.GetByIdAsync(id, ct);
-        if (course is null) return null;
+        if (course is null) throw new NotFoundException("Course not found.");
 
         return new CourseDto(course.Id, course.CourseCode, course.Title, course.Description, 0);
     }
 
-    public async Task<CourseDto?> UpdateAsync(int id, UpdateCourseRequest request, CancellationToken ct = default)
+    public async Task<CourseDto> UpdateAsync(int id, UpdateCourseRequest request, CancellationToken ct = default)
     {
         var course = await _repo.GetForUpdateAsync(id, ct);
-        if (course is null) return null;
+        if (course is null) throw new NotFoundException("Course not found.");
 
         var courseCode = request.CourseCode.Trim();
         var title = request.Title.Trim();
@@ -70,7 +70,7 @@ public sealed class CourseService : ICourseService
         {
             var existing = await _repo.GetByCourseCodeAsync(courseCode, ct);
             if (existing is not null && existing.Id != id)
-                throw new InvalidOperationException("Course code already exists.");
+                throw new ConflictException("Course code already exists.");
         }
 
         course.CourseCode = courseCode;
@@ -82,18 +82,15 @@ public sealed class CourseService : ICourseService
         return new CourseDto(course.Id, course.CourseCode, course.Title, course.Description, 0);
     }
 
-    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+    public async Task DeleteAsync(int id, CancellationToken ct = default)
     {
         var course = await _repo.GetForUpdateAsync(id, ct);
-        if (course is null) return false;
+        if (course is null) throw new NotFoundException("Course not found.");
 
         if (await _repo.IsUsedByCourseInstancesAsync(id, ct))
-            throw new InvalidOperationException("Course is used by course instances. Remove instances first.");
+            throw new ConflictException("Course is used by course instances. Remove instances first.");
 
         await _repo.RemoveAsync(course, ct);
         await _repo.SaveChangesAsync(ct);
-
-        return true;
     }
-
 }

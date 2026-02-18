@@ -1,4 +1,5 @@
-﻿using CourseHub.Application.CourseInstances;
+﻿using CourseHub.Application.Common.Exceptions;
+using CourseHub.Application.CourseInstances;
 using CourseHub.Application.Enrollments;
 using CourseHub.Application.Interfaces;
 using CourseHub.Domain.Entities;
@@ -30,10 +31,10 @@ public sealed class RegistrationService : IRegistrationService
         return _tx.ExecuteAsync(async innerCt =>
         {
             if (!await _courseInstanceRepo.CourseExistsAsync(request.CourseId, innerCt))
-                throw new InvalidOperationException("Course does not exist.");
+                throw new ValidationException("Course does not exist.");
 
             if (!await _courseInstanceRepo.LocationExistsAsync(request.LocationId, innerCt))
-                throw new InvalidOperationException("Location does not exist.");
+                throw new ValidationException("Location does not exist.");
 
             var teacherIds = request.TeacherIds
                 .Where(x => x > 0)
@@ -41,10 +42,10 @@ public sealed class RegistrationService : IRegistrationService
                 .ToArray();
 
             if (teacherIds.Length == 0)
-                throw new InvalidOperationException("At least one teacher is required.");
+                throw new ValidationException("At least one teacher is required.");
 
             if (!await _courseInstanceRepo.TeachersExistAsync(teacherIds, innerCt))
-                throw new InvalidOperationException("One or more teachers do not exist.");
+                throw new ValidationException("One or more teachers do not exist.");
 
             var participantIds = request.ParticipantIds
                 .Where(x => x > 0)
@@ -52,12 +53,12 @@ public sealed class RegistrationService : IRegistrationService
                 .ToArray();
 
             if (participantIds.Length == 0)
-                throw new InvalidOperationException("At least one participant is required.");
+                throw new ValidationException("At least one participant is required.");
 
             foreach (var participantId in participantIds)
             {
                 if (!await _enrollmentRepo.ParticipantExistsAsync(participantId, innerCt))
-                    throw new InvalidOperationException("One or more participants do not exist.");
+                    throw new ValidationException("One or more participants do not exist.");
             }
 
             var courseInstance = new CourseInstance
@@ -100,12 +101,12 @@ public sealed class RegistrationService : IRegistrationService
 
     private static void Validate(CreateCourseInstanceWithEnrollmentsRequest request)
     {
-        if (request.CourseId <= 0) throw new InvalidOperationException("CourseId must be greater than 0.");
-        if (request.LocationId <= 0) throw new InvalidOperationException("LocationId must be greater than 0.");
-        if (request.Capacity <= 0) throw new InvalidOperationException("Capacity must be greater than 0.");
-        if (request.EndDate < request.StartDate) throw new InvalidOperationException("End date cannot be before start date.");
-        if (string.IsNullOrWhiteSpace(request.Status)) throw new InvalidOperationException("Status is required.");
-        if (request.TeacherIds is null || request.TeacherIds.Length == 0) throw new InvalidOperationException("TeacherIds is required.");
-        if (request.ParticipantIds is null || request.ParticipantIds.Length == 0) throw new InvalidOperationException("ParticipantIds is required.");
+        if (request.CourseId <= 0) throw new ValidationException("CourseId must be greater than 0.");
+        if (request.LocationId <= 0) throw new ValidationException("LocationId must be greater than 0.");
+        if (request.Capacity <= 0) throw new ValidationException("Capacity must be greater than 0.");
+        if (request.EndDate < request.StartDate) throw new ValidationException("End date cannot be before start date.");
+        if (string.IsNullOrWhiteSpace(request.Status)) throw new ValidationException("Status is required.");
+        if (request.TeacherIds is null || request.TeacherIds.Length == 0) throw new ValidationException("TeacherIds is required.");
+        if (request.ParticipantIds is null || request.ParticipantIds.Length == 0) throw new ValidationException("ParticipantIds is required.");
     }
 }

@@ -37,6 +37,7 @@ public sealed class LocationRepository : BaseRepository<Location>, ILocationRepo
     public async Task<IReadOnlyList<LocationWithInstanceCount>> GetAllWithInstanceCountAsync(CancellationToken ct = default)
     {
         var items = await Db.Locations
+            .AsNoTracking()
             .Select(l => new LocationWithInstanceCount(
                 l,
                 Db.CourseInstances.Count(ci => ci.LocationId == l.Id)
