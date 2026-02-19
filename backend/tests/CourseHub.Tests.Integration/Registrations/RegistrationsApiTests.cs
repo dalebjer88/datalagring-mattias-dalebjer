@@ -54,7 +54,7 @@ public sealed class RegistrationsApiTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task CreateCourseInstanceWithEnrollments_WhenParticipantMissing_ReturnsBadRequestAndNoWrites()
+    public async Task CreateCourseInstanceWithEnrollments_WhenParticipantMissing_ReturnsBadRequest_AndDoesNotPersistAnything()
     {
         await _factory.ResetDbAsync();
 
