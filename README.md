@@ -1,0 +1,19 @@
+CourseHub
+
+This project was created as part of my Web Developer .NET education at EC Utbildning. The assignment focuses on data storage using a normalized relational database together with an ASP.NET Core Minimal API. The goal is to meet the requirements for both a passing grade (G) and a higher grade (VG), while keeping the solution structured, readable, and aligned with DDD and Clean Architecture.
+
+The solution is organized into separate projects for Domain, Application, Infrastructure, Presentation, and Tests. The system manages courses, course instances, teachers, participants, locations, enrollments, and a registration flow. The Domain layer contains the core entities and relationships. The Application layer contains use case logic (application services) such as validation and orchestration. The Infrastructure layer contains the EF Core DbContext, Fluent configurations, and repositories. The Presentation layer exposes the functionality through Minimal API endpoints.
+
+The database is implemented with Entity Framework Core using a Code First approach and is designed to follow at least Third Normal Form (3NF). The API provides CRUD functionality for the central parts of the system. For VG-level requirements, the project includes raw SQL usage through EF Core (CourseInstances with enrollment counts via GET /api/course-instances/with-enrollment-count) and transaction handling with rollback for multi-step operations (creating a course instance together with multiple enrollments via POST /api/registrations/course-instance-with-enrollments). Performance optimizations are also included, such as in-memory caching for read-heavy list endpoints (Courses and Locations) and efficient query patterns (for example using AsNoTracking where appropriate).
+
+The project also considers concurrent saves and data integrity. To reduce the risk of duplicate data when multiple requests happen at the same time, the database uses unique indexes (for example on CourseCode and on email fields, and on composite keys such as ParticipantId + CourseInstanceId for enrollments and CourseInstanceId + TeacherId for course-instance teachers). Multi-step write operations that must stay consistent are wrapped in explicit EF Core transactions with rollback. Conflicts and invalid operations are returned as clear HTTP responses (for example, 409 Conflict) using ProblemDetails.
+
+A frontend is included to interact with the backend API and demonstrate that the system works end-to-end. The frontend is not the main focus of the grading, but it is used to test and showcase the implemented functionality.
+
+Unit and integration tests have been implemented using xUnit. The tests are AI-generated, but I decided what each test should verify to ensure that the test suite validates the intended behavior of the system.
+
+AI was used throughout the project as a support tool and sounding board for structuring ideas, and for understanding concepts or breaking down more complex problems. It served as an assistant during the learning process and as a guide in the more advanced areas of the code.
+
+Version control has been handled with Git and GitHub, using separate branches during development and merging changes into main according to the assignment instructions.
+
+To run the project locally, start the backend by navigating to backend/src/CourseHub.Api and running dotnet run. Swagger is enabled in Development, and the API includes health endpoints at / and /health. The database uses SQL Server LocalDB and the connection string is defined in backend/src/CourseHub.Api/appsettings.Development.json (key: CourseHubDb). Apply migrations by running dotnet ef database update from the API project directory. The frontend can be started by navigating to the frontend folder and running npm install followed by npm run dev. Tests can be run by executing dotnet test backend/tests. An optional reset script for the dev database is included in scripts/reset-dev-db.sql.
